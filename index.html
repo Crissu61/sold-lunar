@@ -212,6 +212,7 @@ select.inp{appearance:none;background-image:linear-gradient(45deg,transparent 50
 .hint{font-size:12.5px;color:var(--faint);line-height:1.5;margin:10px 2px 0}
 .toast{position:fixed;left:50%;bottom:96px;white-space:nowrap;transform:translate(-50%,14px);z-index:90;background:var(--text);color:var(--bg);padding:10px 16px;border-radius:99px;font-size:13.5px;font-weight:600;opacity:0;pointer-events:none;transition:.2s}
 .toast.on{opacity:1;transform:translate(-50%,0)}
+.sheet-open .toast{bottom:auto;top:74px}
 </style>
 </head>
 <body>
@@ -254,7 +255,7 @@ function uid(){ return Math.random().toString(36).slice(2,10) + Date.now().toStr
 
 function seed(){
   var cats = DEFAULT_CATS.map(function(n,i){ return {id:uid(), name:n, color:PALETTE[i % PALETTE.length]}; });
-  return { cats:cats, fixed:[], incomes:[], expenses:[], provisions:[], budgets:{}, stdBudgets:{}, learn:{}, carry:false, theme:"auto" };
+  return { cats:cats, fixed:[], incomes:[], expenses:[], provisions:[], budgets:{}, stdBudgets:{}, learn:{}, carry:true, carrySet:true, theme:"auto" };
 }
 var storageOK = (function(){
   try{ var k="__t"+Date.now(); localStorage.setItem(k,"1"); localStorage.removeItem(k); return true; }
@@ -274,7 +275,18 @@ function load(){
     return s;
   }catch(e){ return seed(); }
 }
+/* transforma vechile campuri skip/until in perioade de pauza */
+function migrateOff(o){
+  if(!Array.isArray(o.off)) o.off = [];
+  if(o.skip){
+    for(var k in o.skip){ if(o.skip[k]) o.off.push({ from:k, until:k }); }
+    delete o.skip;
+  }
+  if(o.until){ o.off.push({ from: shiftM(o.until, 1), until: null }); delete o.until; }
+}
 function migrate(s){
+  if(s.carrySet !== true){ s.carry = true; s.carrySet = true; }   /* pornit implicit, o singura data */
+  (s.fixed||[]).concat(s.provisions||[]).forEach(migrateOff);
   (s.fixed||[]).forEach(function(f){
     if(!f.hist || typeof f.hist !== "object"){
       f.hist = {};
@@ -352,10 +364,42 @@ function fixedChanges(f){
   keys.sort();
   return keys.map(function(k){ return { month:k, amount:h[k] }; });
 }
+function offSpans(o){ if(!Array.isArray(o.off)) migrateOff(o); return o.off; }
+function isOff(o, m){
+  var sp = offSpans(o);
+  for(var i=0;i<sp.length;i++){
+    if(sp[i].from <= m && (sp[i].until === null || m <= sp[i].until)) return true;
+  }
+  return false;
+}
+function offReason(o, m){
+  var sp = offSpans(o);
+  for(var i=0;i<sp.length;i++){
+    var q = sp[i];
+    if(q.from <= m && (q.until === null || m <= q.until)){
+      if(q.until === null) return "oprit din " + mLabel(q.from);
+      if(q.from === q.until) return "sărit peste " + mLabel(q.from);
+      return "pauză " + mLabel(q.from) + " – " + mLabel(q.until);
+    }
+  }
+  return null;
+}
+function addOff(o, from, until){
+  offSpans(o).push({ from: from, until: until === undefined ? null : until });
+}
+/* reactiveaza din luna R inainte: taie orice pauza care ar acoperi R sau ce urmeaza */
+function reactivateFrom(o, R){
+  var sp = offSpans(o), keep = [];
+  sp.forEach(function(q){
+    if(q.from >= R) return;                                  // pauza incepe dupa R -> dispare
+    if(q.until === null || q.until >= R) q.until = shiftM(R, -1);  // se opreste inainte de R
+    if(q.until >= q.from) keep.push(q);
+  });
+  o.off = keep;
+}
 function fixedLive(f, m){
   if(f.active === false) return false;
-  if(f.skip && f.skip[m]) return false;
-  if(f.until && m > f.until) return false;
+  if(isOff(f, m)) return false;
   return fixedAmount(f, m) !== null;
 }
 function fixedFor(m){
@@ -375,9 +419,8 @@ function totalExpense(m){ var t=0; expensesFor(m).forEach(function(e){ t+=e.amou
 function provIdx(p,m){ return (p.startIdx||1) + mDiff(p.from||m, m); }
 function provLastMonth(p){ if(!p.term) return null; return shiftM(p.from||ui.month, p.term - (p.startIdx||1)); }
 function provActive(p,m){
-  if(!p.recurring) return p.month === m;
-  if(p.skip && p.skip[m]) return false;
-  if(p.until && m > p.until) return false;
+  if(!p.recurring) return p.month === m && !isOff(p, m);
+  if(isOff(p, m)) return false;
   if(m < (p.from||m)) return false;
   if(p.term){ var i = provIdx(p,m); return i >= 1 && i <= p.term; }
   return true;
@@ -622,7 +665,7 @@ function viewHome(){
     '<div class="big num'+(bal<0?" neg":"")+'">'+esc(lei(bal))+'</div>'+
     '<div class="sub">'+esc(mLabel(m))+(prov>0?' · după provizioane':'')+'</div></div>'+
     '<div class="breakdown">'+
-      (S.carry ? brow("#5A6B7B","Report luna anterioară", carry, "carry") : "")+
+      ((S.carry && m > firstMonth()) ? brow("#5A6B7B","Report din " + mLabel(shiftM(m,-1)).split(" ")[0], carry, "carry") : "")+
       brow("var(--ok)","Venituri", inc, "inc")+
       brow("var(--danger)","Cheltuieli", -exp, "exp")+
       brow("var(--warn)","Provizioane neachitate", -prov, "prov")+
@@ -753,19 +796,6 @@ function viewList(){
         '<span class="amt in num">+'+esc(lei(i.amount))+'</span></button>';
     }).join("");
   }
-  var offFix = S.fixed.filter(function(f){ return !fixedLive(f, m); });
-  if(offFix.length){
-    h += offFix.map(function(f){
-      var why;
-      if(f.skip && f.skip[m]) why = "sărit peste luna asta";
-      else if(f.until && m > f.until) why = "oprit după " + mLabel(f.until);
-      else why = "începe din " + mLabel(fixedStart(f));
-      return '<button class="row" data-editfix="'+f.id+'" style="opacity:.6">'+
-        '<span class="chip" style="background:var(--surface2);color:var(--faint)">F</span>'+
-        '<span class="main"><span class="t">'+esc(f.name)+'</span><span class="s">'+esc(why)+'</span></span>'+
-        '<span class="s" style="color:var(--faint)">inactiv</span></button>';
-    }).join("");
-  }
   h += '</div>';
 
   var exps = expensesFor(m).slice().sort(function(a,b){ return a.date<b.date?1:a.date>b.date?-1:(b.ts||0)-(a.ts||0); });
@@ -878,29 +908,20 @@ function viewSettings(){
   }).join("");
   h += '</div>';
 
-  var inactive = S.provisions.filter(function(pp){ return !provActive(pp, ui.month); });
-  if(inactive.length){
-    h += '<div class="sect"><h2>Provizioane inactive în '+esc(mLabel(ui.month))+'</h2></div><div class="stack" style="margin-top:8px">';
-    h += inactive.map(function(pp){
-      var c = pp.catId ? cat(pp.catId) : null, col = c ? c.color : "#B5721A";
-      var info;
-      if(!pp.recurring) info = "o singură dată, în " + mLabel(pp.month);
-      else if(pp.skip && pp.skip[ui.month]) info = "sărit peste " + mLabel(ui.month);
-      else if(pp.until && ui.month > pp.until) info = "oprit după " + mLabel(pp.until);
-      else if(pp.term){
-        var lm = provLastMonth(pp);
-        info = (ui.month > lm) ? ("încheiat · ultima rată în " + mLabel(lm)) : ("începe în " + mLabel(pp.from));
-      } else info = "începe în " + mLabel(pp.from||ui.month);
-      return '<button class="row" data-editprov="'+pp.id+'">'+
-        '<span class="chip" style="background:'+tint(col,.14)+';color:'+col+'">'+esc(c?initials(c.name):"P")+'</span>'+
-        '<span class="main"><span class="t">'+esc(pp.name)+'</span><span class="s">'+esc(info)+'</span></span>'+
-        '<span class="s" style="color:var(--faint)">editează</span></button>';
-    }).join("");
-    h += '</div>';
-  }
+  var arch = archivedItems(ui.month);
+  h += '<div class="sect"><h2>Arhivă</h2></div><div class="stack" style="margin-top:8px">'+
+    '<button class="row" data-sheet="archive">'+
+      '<span class="chip" style="background:var(--surface2);color:var(--muted)">'+
+        '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v3H3zM5 10v10h14V10M10 14h4"/></svg>'+
+      '</span>'+
+      '<span class="main"><span class="t">Arhivă</span><span class="s">'+
+        (arch.length ? arch.length + (arch.length === 1 ? " element inactiv în " : " elemente inactive în ") + mLabel(ui.month)
+                     : "nimic inactiv în " + mLabel(ui.month))+'</span></span>'+
+      '<span class="s" style="color:var(--faint)">deschide</span>'+
+    '</button></div>';
 
   h += '<div class="sect"><h2>Preferințe</h2></div><div class="card stack" style="margin-top:8px;gap:0">'+
-    '<div class="switch"><div><b>Reportează soldul</b><small>Soldul rămas la final de lună trece în luna următoare</small></div>'+
+    '<div class="switch"><div><b>Reportează soldul</b><small>Fiecare lună începe cu ce a rămas din luna dinainte. Dacă îl oprești, fiecare lună pornește de la zero.</small></div>'+
     '<button class="tog" data-toggle="carry" aria-pressed="'+(!!S.carry)+'" aria-label="Reportează soldul"><i></i></button></div>'+
     '</div>';
 
@@ -928,10 +949,10 @@ function viewSettings(){
 var sheet = document.getElementById("sheet"), scrim = document.getElementById("scrim");
 function openSheet(html){
   sheet.innerHTML = '<div class="grab"></div>' + html;
-  scrim.classList.add("on"); sheet.classList.add("on");
+  scrim.classList.add("on"); sheet.classList.add("on"); document.body.classList.add("sheet-open");
   var f = sheet.querySelector("[data-focus]"); if(f) setTimeout(function(){ f.focus(); }, 240);
 }
-function closeSheet(){ scrim.classList.remove("on"); sheet.classList.remove("on"); }
+function closeSheet(){ scrim.classList.remove("on"); sheet.classList.remove("on"); document.body.classList.remove("sheet-open"); }
 scrim.addEventListener("click", closeSheet);
 
 function catOptions(sel){
@@ -1069,9 +1090,9 @@ function sheetIncome(kind, id){
        '<input class="inp num" id="iDay" type="number" min="1" max="31" inputmode="numeric" placeholder="ex. 25" value="'+((f&&f.day)?f.day:"")+'"></label>'+
        '<p class="hint" style="margin:-6px 2px 14px">Cu ziua completată, ecranul principal îți arată câte zile mai sunt până la următoarea încasare și ce plăți programate pică până atunci.</p></div>';
   h += '<input type="hidden" id="iKind" value="'+k+'">';
-  if(f && !fixedLive(f, ui.month) && ((f.skip && f.skip[ui.month]) || (f.until && ui.month > f.until))){
-    h += '<p class="hint" style="margin:0 2px 10px;color:var(--warn)">Momentan nu se aplică în '+esc(mLabel(ui.month))+'.</p>'+
-         '<button class="btn ghost" style="margin-bottom:10px" data-resume="fix|'+f.id+'">Reia din '+esc(mLabel(ui.month))+'</button>';
+  if(f && isOff(f, ui.month)){
+    h += '<p class="hint" style="margin:0 2px 10px;color:var(--warn)">'+esc(offReason(f, ui.month))+'.</p>'+
+         '<button class="btn ghost" style="margin-bottom:10px" data-reactivate="fix|'+f.id+'">Reactivează…</button>';
   }
   h += '<button class="btn" data-save="inc" data-id="'+(cur?cur.id:"")+'">'+(cur?"Salvează":"Adaugă venitul")+'</button>';
   if(cur){
@@ -1120,10 +1141,9 @@ function sheetProvision(id){
        '<label class="f"><span>Rata în '+esc(mLabel(ui.month).split(" ")[0])+'</span><input class="inp num" id="pIdx" type="number" min="1" inputmode="numeric" value="'+curIdx+'"></label>'+
        '<label class="f"><span>Din total rate</span><input class="inp num" id="pTot" type="number" min="1" inputmode="numeric" placeholder="ex. 24" value="'+((p&&p.term)?p.term:"")+'"></label>'+
        '</div><p class="hint" id="pTermHint" style="margin:-6px 2px 14px"></p></div>';
-  if(p && p.recurring && ((p.skip && p.skip[ui.month]) || (p.until && ui.month > p.until))){
-    h += '<p class="hint" style="margin:0 2px 10px;color:var(--warn)">'+
-         ((p.skip && p.skip[ui.month]) ? 'Sărit peste '+esc(mLabel(ui.month))+'.' : 'Oprit după '+esc(mLabel(p.until))+'.')+'</p>'+
-         '<button class="btn ghost" style="margin-bottom:14px" data-resume="prov|'+p.id+'">Reia din '+esc(mLabel(ui.month))+'</button>';
+  if(p && isOff(p, ui.month)){
+    h += '<p class="hint" style="margin:0 2px 10px;color:var(--warn)">'+esc(offReason(p, ui.month))+'.</p>'+
+         '<button class="btn ghost" style="margin-bottom:14px" data-reactivate="prov|'+p.id+'">Reactivează…</button>';
   }
   if(p && (paid > 0 || settled)){
     var pays = provPayments(p, ui.month);
@@ -1220,6 +1240,92 @@ function sheetCat(id){
   });
 }
 
+/* --- arhiva: ce nu se aplica in luna deschisa --- */
+function archivedItems(m){
+  var out = [];
+  S.fixed.forEach(function(f){
+    if(fixedLive(f, m)) return;
+    var why = offReason(f, m);
+    if(!why){
+      if(f.active === false) return;
+      why = "începe din " + mLabel(fixedStart(f));
+    }
+    out.push({ kind:"fix", obj:f, why:why, kindLabel:"venit fix" });
+  });
+  S.provisions.forEach(function(p){
+    if(provActive(p, m)) return;
+    var why = offReason(p, m);
+    if(!why){
+      if(!p.recurring) why = "o singură dată, în " + mLabel(p.month);
+      else if(p.term){
+        var lm = provLastMonth(p);
+        why = (m > lm) ? ("încheiat · ultima rată în " + mLabel(lm)) : ("începe din " + mLabel(p.from));
+      } else why = "începe din " + mLabel(p.from || m);
+    }
+    out.push({ kind:"prov", obj:p, why:why, kindLabel: p.recurring ? (p.term ? "rată" : "provizion lunar") : "provizion o singură dată" });
+  });
+  return out;
+}
+function monthOptions(sel){
+  var base = mk(new Date()), out = "";
+  for(var i = -18; i <= 18; i++){
+    var mm = shiftM(base, i);
+    out += '<option value="'+mm+'"'+(mm===sel?" selected":"")+'>'+esc(mLabel(mm))+'</option>';
+  }
+  return out;
+}
+function sheetArchive(){
+  var m = ui.month, items = archivedItems(m);
+  var h = '<h3>Arhivă</h3>';
+  h += '<p class="hint" style="margin:-6px 2px 16px">Ce nu se aplică în '+esc(mLabel(m))+
+       ': venituri și provizioane oprite, sărite peste o lună sau încheiate. Nu apar în ecranele de lucru, dar le poți reactiva oricând.</p>';
+  if(!items.length){
+    h += '<div class="empty">Nimic în arhivă pentru '+esc(mLabel(m))+'.</div>';
+    openSheet(h); return;
+  }
+  h += items.map(function(it){
+    var col = it.kind === "fix" ? "#2E8B51" : (it.obj.catId ? cat(it.obj.catId).color : "#B5721A");
+    return '<div class="row" style="cursor:default;align-items:flex-start;padding:12px 14px">'+
+      '<span class="chip" style="background:'+tint(col,.14)+';color:'+col+'">'+esc(it.kind==="fix"?"F":initials(it.obj.name))+'</span>'+
+      '<span class="main"><span class="t">'+esc(it.obj.name)+'</span>'+
+      '<span class="s">'+esc(it.kindLabel)+' · '+esc(it.why)+'</span>'+
+      '<span style="display:flex;gap:8px;margin-top:9px">'+
+        '<button type="button" class="btn ghost" style="width:auto;padding:8px 12px;font-size:13px" data-reactivate="'+it.kind+'|'+it.obj.id+'">Reactivează</button>'+
+        '<button type="button" class="btn ghost" style="width:auto;padding:8px 12px;font-size:13px" data-openitem="'+it.kind+'|'+it.obj.id+'">Deschide</button>'+
+      '</span></span></div>';
+  }).join("");
+  openSheet(h);
+}
+function sheetReactivate(kind, id){
+  var obj = (kind === "fix" ? S.fixed : S.provisions).filter(function(x){ return x.id === id; })[0];
+  if(!obj) return;
+  var restart = kind === "prov" && obj.recurring && obj.term && ui.month > provLastMonth(obj);
+  var h = '<h3>Reactivează „'+esc(obj.name)+'"</h3>';
+  h += '<p class="hint" style="margin:-6px 2px 14px">'+
+       (restart ? 'Seria de rate s-a încheiat, deci repornește de la rata 1 din luna aleasă.'
+                : 'Se aplică din luna aleasă înainte. Lunile dinainte rămân neatinse.')+'</p>';
+  h += '<label class="f"><span>Din luna</span><select class="inp" id="reMonth">'+monthOptions(ui.month)+'</select></label>';
+  h += '<button class="btn" data-doreactivate="'+kind+'|'+id+'">Reactivează</button>';
+  openSheet(h);
+}
+function doReactivate(kind, id){
+  var obj = (kind === "fix" ? S.fixed : S.provisions).filter(function(x){ return x.id === id; })[0];
+  if(!obj) return;
+  var R = document.getElementById("reMonth").value;
+  if(kind === "prov" && obj.recurring && obj.term && R > provLastMonth(obj)){
+    obj.from = R; obj.startIdx = 1;
+  }
+  if(kind === "prov" && !obj.recurring) obj.month = R;
+  if(kind === "fix"){
+    var h = fixHist(obj);
+    if(fixedAmount(obj, R) === null) h[R] = obj.amount || 0;
+    obj.active = true;
+  }
+  reactivateFrom(obj, R);
+  ui.month = R;
+  closeSheet(); commit("Reactivat din " + mLabel(R));
+}
+
 /* --- ce fac cu un lucru care se repeta lunar --- */
 function sheetDeleteScope(kind, id){
   var obj = (kind === "fix" ? S.fixed : S.provisions).filter(function(x){ return x.id === id; })[0];
@@ -1248,9 +1354,8 @@ function applyDeleteScope(kind, id, scope){
     else S.provisions = S.provisions.filter(function(x){ return x.id !== id; });
     msg = "Șters din toate lunile";
   } else if(scope === "month"){
-    obj.skip = obj.skip || {};
-    obj.skip[m] = true;
-    msg = "Scos doar din " + mLabel(m);
+    addOff(obj, m, m);
+    msg = "Scos doar din " + mLabel(m) + " — îl găsești în Arhivă";
   } else {
     var start = kind === "fix" ? fixedStart(obj) : (obj.from || m);
     if(m <= start){
@@ -1258,8 +1363,8 @@ function applyDeleteScope(kind, id, scope){
       else S.provisions = S.provisions.filter(function(x){ return x.id !== id; });
       msg = "Șters complet";
     } else {
-      obj.until = shiftM(m, -1);
-      msg = "Se oprește după " + mLabel(obj.until);
+      addOff(obj, m, null);
+      msg = "Oprit din " + mLabel(m) + " — îl găsești în Arhivă";
     }
   }
   closeSheet(); commit(msg);
@@ -1446,7 +1551,7 @@ function deleteCat(id){
 
 /* ============ events ============ */
 document.addEventListener("click", function(ev){
-  var t = ev.target.closest ? ev.target.closest("[data-delscopeopen],[data-delscope],[data-resume],[data-delhist],[data-install],[data-nav],[data-sheet],[data-editexp],[data-editprov],[data-editfix],[data-editinc],[data-editcat],[data-save],[data-del],[data-toggle],[data-copybud],[data-payprov],[data-closeprov],[data-reopenprov],[data-copytxt],[data-restore],[data-forget],[data-reset]") : null;
+  var t = ev.target.closest ? ev.target.closest("[data-reactivate],[data-doreactivate],[data-openitem],[data-delscopeopen],[data-delscope],[data-delhist],[data-install],[data-nav],[data-sheet],[data-editexp],[data-editprov],[data-editfix],[data-editinc],[data-editcat],[data-save],[data-del],[data-toggle],[data-copybud],[data-payprov],[data-closeprov],[data-reopenprov],[data-copytxt],[data-restore],[data-forget],[data-reset]") : null;
   if(!t) return;
   var a = function(k){ return t.getAttribute(k); };
 
@@ -1459,6 +1564,7 @@ document.addEventListener("click", function(ev){
     else if(s==="prov") sheetProvision(null);
     else if(s==="budget") sheetBudget();
     else if(s==="cat") sheetCat(null);
+    else if(s==="archive") sheetArchive();
     else if(s==="backup") sheetBackup();
     else if(s==="restore") sheetRestore();
     return;
@@ -1508,6 +1614,22 @@ document.addEventListener("click", function(ev){
     }
     return;
   }
+  if(a("data-reactivate")){
+    var ra = a("data-reactivate").split("|");
+    closeSheet(); setTimeout(function(){ sheetReactivate(ra[0], ra[1]); }, 140);
+    return;
+  }
+  if(a("data-doreactivate")){
+    var rb = a("data-doreactivate").split("|");
+    doReactivate(rb[0], rb[1]);
+    return;
+  }
+  if(a("data-openitem")){
+    var oi = a("data-openitem").split("|");
+    closeSheet();
+    setTimeout(function(){ oi[0] === "fix" ? sheetIncome("fix", oi[1]) : sheetProvision(oi[1]); }, 140);
+    return;
+  }
   if(a("data-delscopeopen")){
     var q = a("data-delscopeopen").split("|");
     closeSheet(); setTimeout(function(){ sheetDeleteScope(q[0], q[1]); }, 140);
@@ -1516,16 +1638,6 @@ document.addEventListener("click", function(ev){
   if(a("data-delscope")){
     var w = a("data-delscope").split("|");
     applyDeleteScope(w[0], w[1], w[2]);
-    return;
-  }
-  if(a("data-resume")){
-    var rp = a("data-resume").split("|");
-    var ro = (rp[0] === "fix" ? S.fixed : S.provisions).filter(function(x){ return x.id === rp[1]; })[0];
-    if(ro){
-      if(ro.skip) delete ro.skip[ui.month];
-      if(ro.until && ui.month > ro.until) ro.until = null;
-    }
-    closeSheet(); commit("Reluat din " + mLabel(ui.month));
     return;
   }
   if(a("data-delhist")){
@@ -1621,7 +1733,7 @@ window.__app = {
   totalOpenProv:totalOpenProv, byCategory:byCategory, budgetOf:budgetOf,
   provisionsFor:provisionsFor, provLastMonth:provLastMonth, provIdx:provIdx, provActive:provActive,
   provRemaining:provRemaining, provPaid:provPaid, provState:provState,
-  fixedLive:fixedLive, applyDeleteScope:applyDeleteScope, fixedAmount:fixedAmount, fixedStart:fixedStart, fixedChanges:fixedChanges, fixedFor:fixedFor,
+  fixedLive:fixedLive, archivedItems:archivedItems, reactivateFrom:reactivateFrom, isOff:isOff, addOff:addOff, applyDeleteScope:applyDeleteScope, fixedAmount:fixedAmount, fixedStart:fixedStart, fixedChanges:fixedChanges, fixedFor:fixedFor,
   nextSalary:nextSalary, provisionsDueBy:provisionsDueBy, dateForDay:dateForDay,
   guessCategory:guessCategory, learnFrom:learnFrom, normTxt:normTxt,
   uid:uid, seed:seed, render:render, save:save
