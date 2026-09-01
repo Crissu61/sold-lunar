@@ -461,6 +461,145 @@ function budgetedCats(m){
   return S.cats.filter(function(c){ return budgetOf(m,c.id) != null && budgetOf(m,c.id) > 0; });
 }
 
+/* ============ citire bon ============ */
+function normUp(l){
+  return l.toUpperCase()
+    .replace(/[ĂÂ]/g,"A").replace(/Î/g,"I").replace(/[ȘŞ]/g,"S").replace(/[ȚŢ]/g,"T");
+}
+function numsIn(l){
+  var out = [], re = /(\d{1,3}(?:[.\s]\d{3})+|\d+)[,.](\d{2})(?!\d)/g, m;
+  while((m = re.exec(l))){ out.push(parseFloat(m[1].replace(/[.\s]/g,"") + "." + m[2])); }
+  return out;
+}
+function parseReceipt(text){
+  var lines = String(text||"").split(/\r?\n/).map(function(l){ return l.replace(/\s+/g," ").trim(); }).filter(Boolean);
+  var up = lines.map(normUp), total = null, i, ns;
+
+  for(i = up.length-1; i >= 0; i--){
+    var l = up[i];
+    if(/\bTVA\b/.test(l) || /SUBT[O0]TAL/.test(l)) continue;
+    if(/\bT[O0]TAL\b/.test(l) || /DE\s*PLATA/.test(l) || /\bSUMA\b/.test(l)){
+      ns = numsIn(lines[i]);
+      if(ns.length){ total = ns[ns.length-1]; break; }
+      if(i+1 < lines.length){ ns = numsIn(lines[i+1]); if(ns.length){ total = ns[ns.length-1]; break; } }
+    }
+  }
+  if(total === null){
+    var best = 0;
+    for(i = 0; i < up.length; i++){
+      if(/NUMERAR|REST|CARD|BON|TVA|CIF|CUI/.test(up[i])) continue;
+      numsIn(lines[i]).forEach(function(n){ if(n > best) best = n; });
+    }
+    if(best > 0) total = best;
+  }
+
+  function tryDate(str){
+    var m = str.match(/(\d{1,2})\s*[-.\/]\s*(\d{1,2})\s*[-.\/]\s*(\d{2,4})/);
+    if(!m) return null;
+    var dd = +m[1], mm = +m[2], yy = +m[3];
+    if(dd < 1 || dd > 31 || mm < 1 || mm > 12) return null;
+    if(yy < 100) yy += 2000;
+    var now = new Date(), cy = now.getFullYear(), AHEAD = 45 * 86400000;
+    if(yy < cy - 3 || yy > cy + 1){
+      /* anul a fost citit gresit — accept doar daca ziua si luna dau o data recenta */
+      var best = null, bd = Infinity;
+      [cy-1, cy, cy+1].forEach(function(y){
+        var d = new Date(y, mm-1, dd);
+        if(d - now > AHEAD || now - d > 120 * 86400000) return;
+        var diff = Math.abs(d - now);
+        if(diff < bd){ bd = diff; best = y; }
+      });
+      if(best === null) return null;
+      yy = best;
+    }
+    var chk = new Date(yy, mm-1, dd);
+    if(chk.getMonth() !== mm-1 || chk - now > AHEAD) return null;
+    return yy + "-" + pad(mm) + "-" + pad(dd);
+  }
+  function digitFix(str){ return str.replace(/[OoQ]/g,"0").replace(/[lI|]/g,"1").replace(/[Ss]/g,"5").replace(/B/g,"8"); }
+  var date = null;
+  for(i = 0; i < lines.length && !date; i++) date = tryDate(lines[i]);
+  for(i = 0; i < lines.length && !date; i++) date = tryDate(digitFix(lines[i]));
+
+  var name = null;
+  for(i = 0; i < lines.length && i < 6; i++){
+    var c = lines[i].replace(/[^A-Za-zĂÂÎȘȚăâîșț0-9 .&-]/g," ").replace(/\s+/g," ").trim();
+    if(c.length >= 3 && /[A-Za-z]{3}/.test(c) && !/^(CIF|CUI|RO\d|STR|B-DUL|BD|NR|TEL|SC )/i.test(c)){
+      c = c.replace(/\b(S\.?R\.?L\.?|S\.?A\.?|SCS|SNC|PFA|IMPEX|DISCOUNT)\b/gi," ")
+           .replace(/\s+/g," ").trim()
+           .replace(/(\s+\S){0,0}$/,"")
+           .replace(/\s+\S$/, function(t){ return t.trim().length <= 1 ? "" : t; });
+      if(c.length >= 3){ name = c.slice(0,40); break; }
+    }
+  }
+  return { total: total, date: date, merchant: name, text: text };
+}
+
+function imageToCanvas(file, cb){
+  var url = URL.createObjectURL(file), im = new Image();
+  im.onload = function(){
+    var sc = Math.min(1, 1500 / im.width);
+    var w = Math.round(im.width * sc), h = Math.round(im.height * sc);
+    var cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+    var cx = cv.getContext("2d"); cx.drawImage(im, 0, 0, w, h);
+    try{
+      var d = cx.getImageData(0,0,w,h), a = d.data, i, g, min = 255, max = 0;
+      for(i = 0; i < a.length; i += 4){
+        g = (a[i]*0.299 + a[i+1]*0.587 + a[i+2]*0.114) | 0;
+        a[i] = a[i+1] = a[i+2] = g;
+        if(g < min) min = g; if(g > max) max = g;
+      }
+      var range = Math.max(1, max - min);
+      for(i = 0; i < a.length; i += 4){
+        g = (a[i] - min) * 255 / range;
+        a[i] = a[i+1] = a[i+2] = g < 0 ? 0 : g > 255 ? 255 : g;
+      }
+      cx.putImageData(d, 0, 0);
+    }catch(e){}
+    URL.revokeObjectURL(url);
+    cb(cv);
+  };
+  im.onerror = function(){ URL.revokeObjectURL(url); cb(null); };
+  im.src = url;
+}
+
+var ocrLib = null, ocrWorker = null;
+function loadOcrLib(cb){
+  if(window.Tesseract) return cb(window.Tesseract);
+  if(ocrLib) return ocrLib.push(cb);
+  ocrLib = [cb];
+  var sc = document.createElement("script");
+  sc.src = "tesseract.min.js";
+  sc.onload = function(){ var q = ocrLib; ocrLib = null; q.forEach(function(f){ f(window.Tesseract); }); };
+  sc.onerror = function(){ var q = ocrLib; ocrLib = null; q.forEach(function(f){ f(null); }); };
+  document.head.appendChild(sc);
+}
+function readReceipt(file, onProgress, done){
+  imageToCanvas(file, function(cv){
+    if(!cv) return done(null, "Nu am putut deschide poza.");
+    loadOcrLib(function(T){
+      if(!T) return done(null, "Nu am putut încărca motorul de citire.");
+      var run = function(w){
+        w.recognize(cv).then(function(res){ done(parseReceipt(res.data.text), null); })
+                       .catch(function(){ done(null, "Citirea a eșuat. Încearcă o poză mai luminoasă."); });
+      };
+      if(ocrWorker) return run(ocrWorker);
+      onProgress("Pregătesc motorul de citire…", 0);
+      T.createWorker("ron", 1, {
+        workerPath: "worker.min.js",
+        corePath: "./",
+        langPath: ".",
+        gzip: true,
+        logger: function(m){
+          if(m.status === "recognizing text") onProgress("Citesc bonul…", m.progress);
+          else if(/load|initializ/i.test(m.status)) onProgress("Pregătesc motorul de citire…", m.progress);
+        }
+      }).then(function(w){ ocrWorker = w; run(w); })
+        .catch(function(){ done(null, "Nu am putut porni motorul de citire."); });
+    });
+  });
+}
+
 /* ============ render ============ */
 var view = document.getElementById("view");
 
@@ -808,6 +947,15 @@ function sheetExpense(id, presetProvId){
   var e = id ? S.expenses.filter(function(x){ return x.id===id; })[0] : null;
   var open = openProvisions(ui.month);
   var h = '<h3>'+(e?"Editează cheltuiala":"Cheltuială nouă")+'</h3>';
+  if(!e && window.__OCR__){
+    h += '<button class="btn ghost" id="scanBtn" style="margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:8px">'+
+      '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+
+      '<path d="M3 9V6a3 3 0 0 1 3-3h3M21 9V6a3 3 0 0 0-3-3h-3M3 15v3a3 3 0 0 0 3 3h3M21 15v3a3 3 0 0 1-3 3h-3M7 12h10"/></svg>'+
+      'Scanează bonul</button>'+
+      '<input type="file" id="scanFile" accept="image/*" capture="environment" style="display:none">'+
+      '<p class="hint" id="scanInfo" hidden style="margin:2px 2px 12px"></p>'+
+      '<div id="scanRaw" hidden style="margin-bottom:12px"></div>';
+  }
   if(!e && open.length){
     h += '<label class="f"><span>Din provizion (opțional)</span><select class="inp" id="fProv"><option value="">— cheltuială nouă —</option>'+
       open.map(function(x){ return '<option value="'+x.p.id+'"'+(x.p.id===presetProvId?" selected":"")+'>'+esc(x.p.name)+' · rest '+esc(leiShort(x.remaining))+'</option>'; }).join("")+
@@ -827,6 +975,53 @@ function sheetExpense(id, presetProvId){
   h += '<button class="btn" data-save="exp" data-id="'+(e?e.id:"")+'">'+(e?"Salvează":"Adaugă cheltuiala")+'</button>';
   if(e) h += '<button class="btn dang" style="margin-top:8px" data-del="exp" data-id="'+e.id+'">Șterge</button>';
   openSheet(h);
+
+  var scanBtn = document.getElementById("scanBtn");
+  if(scanBtn){
+    var scanFile = document.getElementById("scanFile"), info = document.getElementById("scanInfo"),
+        raw = document.getElementById("scanRaw");
+    function say(msg, cls){
+      info.hidden = false;
+      info.style.color = cls === "bad" ? "var(--danger)" : cls === "good" ? "var(--accent-ink)" : "var(--faint)";
+      info.textContent = msg;
+    }
+    scanBtn.addEventListener("click", function(){ scanFile.click(); });
+    scanFile.addEventListener("change", function(){
+      var f = scanFile.files && scanFile.files[0];
+      if(!f) return;
+      scanBtn.disabled = true; scanBtn.style.opacity = ".6";
+      raw.hidden = true; raw.innerHTML = "";
+      say("Pregătesc poza…");
+      readReceipt(f, function(msg, prog){
+        say(msg + (prog ? " " + Math.round(prog*100) + "%" : ""));
+      }, function(res, err){
+        scanBtn.disabled = false; scanBtn.style.opacity = "";
+        scanFile.value = "";
+        if(err || !res){ say(err || "N-am reușit să citesc bonul.", "bad"); return; }
+        var parts = [];
+        if(res.total){ document.getElementById("fAmt").value = String(res.total).replace(".",","); parts.push(lei(res.total)); }
+        if(res.date){
+          var el = document.getElementById("fDate");
+          if(el) el.value = res.date;
+          parts.push(res.date.split("-").reverse().join("."));
+        }
+        if(res.merchant){
+          var nt = document.getElementById("fNote");
+          if(nt && !nt.value) nt.value = res.merchant;
+          parts.push(res.merchant);
+        }
+        if(res.total) say("Din bon: " + parts.join(" · ") + ". Verifică sumele înainte de a salva.", "good");
+        else say("N-am găsit totalul pe bon — scrie suma manual.", "bad");
+        raw.hidden = false;
+        raw.innerHTML = '<button type="button" class="hint" id="rawToggle" style="text-decoration:underline;padding:0">vezi textul citit</button>'+
+          '<pre id="rawTxt" hidden style="white-space:pre-wrap;font-family:var(--fm);font-size:11px;color:var(--muted);background:var(--surface2);border-radius:10px;padding:10px;margin:8px 0 0;max-height:180px;overflow:auto"></pre>';
+        var rt = document.getElementById("rawTxt");
+        rt.textContent = res.text || "";
+        document.getElementById("rawToggle").addEventListener("click", function(){ rt.hidden = !rt.hidden; });
+      });
+    });
+  }
+
   var sel = document.getElementById("fProv");
   if(sel){
     var box = document.getElementById("fCloseBox"), val = document.getElementById("fCloseVal");
@@ -1337,11 +1532,13 @@ window.__app = {
   provisionsFor:provisionsFor, provLastMonth:provLastMonth, provIdx:provIdx, provActive:provActive,
   provRemaining:provRemaining, provPaid:provPaid, provState:provState,
   nextSalary:nextSalary, provisionsDueBy:provisionsDueBy, dateForDay:dateForDay,
+  parseReceipt:parseReceipt,
   uid:uid, seed:seed, render:render, save:save
 };
 })();
 </script>
 
+<script>window.__OCR__ = true;</script>
 <script>
 if("serviceWorker" in navigator){
   window.addEventListener("load", function(){
