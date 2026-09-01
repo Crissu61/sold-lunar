@@ -352,8 +352,14 @@ function fixedChanges(f){
   keys.sort();
   return keys.map(function(k){ return { month:k, amount:h[k] }; });
 }
+function fixedLive(f, m){
+  if(f.active === false) return false;
+  if(f.skip && f.skip[m]) return false;
+  if(f.until && m > f.until) return false;
+  return fixedAmount(f, m) !== null;
+}
 function fixedFor(m){
-  return S.fixed.filter(function(f){ return f.active !== false && fixedAmount(f, m) !== null; });
+  return S.fixed.filter(function(f){ return fixedLive(f, m); });
 }
 function incomesFor(m){ return S.incomes.filter(function(i){ return i.month===m; }); }
 function totalIncome(m){
@@ -370,6 +376,8 @@ function provIdx(p,m){ return (p.startIdx||1) + mDiff(p.from||m, m); }
 function provLastMonth(p){ if(!p.term) return null; return shiftM(p.from||ui.month, p.term - (p.startIdx||1)); }
 function provActive(p,m){
   if(!p.recurring) return p.month === m;
+  if(p.skip && p.skip[m]) return false;
+  if(p.until && m > p.until) return false;
   if(m < (p.from||m)) return false;
   if(p.term){ var i = provIdx(p,m); return i >= 1 && i <= p.term; }
   return true;
@@ -420,7 +428,7 @@ function nextSalary(){
     if(f.active === false || !f.day) return;
     for(var k=0; k<2; k++){
       var mm = shiftM(mk(today), k);
-      if(fixedAmount(f, mm) === null) continue;
+      if(!fixedLive(f, mm)) continue;
       var d = dateForDay(mm, f.day);
       if(d >= today){ if(!best || d < best.date) best = { date:d, f:f, month:mm }; break; }
     }
@@ -745,6 +753,19 @@ function viewList(){
         '<span class="amt in num">+'+esc(lei(i.amount))+'</span></button>';
     }).join("");
   }
+  var offFix = S.fixed.filter(function(f){ return !fixedLive(f, m); });
+  if(offFix.length){
+    h += offFix.map(function(f){
+      var why;
+      if(f.skip && f.skip[m]) why = "sărit peste luna asta";
+      else if(f.until && m > f.until) why = "oprit după " + mLabel(f.until);
+      else why = "începe din " + mLabel(fixedStart(f));
+      return '<button class="row" data-editfix="'+f.id+'" style="opacity:.6">'+
+        '<span class="chip" style="background:var(--surface2);color:var(--faint)">F</span>'+
+        '<span class="main"><span class="t">'+esc(f.name)+'</span><span class="s">'+esc(why)+'</span></span>'+
+        '<span class="s" style="color:var(--faint)">inactiv</span></button>';
+    }).join("");
+  }
   h += '</div>';
 
   var exps = expensesFor(m).slice().sort(function(a,b){ return a.date<b.date?1:a.date>b.date?-1:(b.ts||0)-(a.ts||0); });
@@ -864,6 +885,8 @@ function viewSettings(){
       var c = pp.catId ? cat(pp.catId) : null, col = c ? c.color : "#B5721A";
       var info;
       if(!pp.recurring) info = "o singură dată, în " + mLabel(pp.month);
+      else if(pp.skip && pp.skip[ui.month]) info = "sărit peste " + mLabel(ui.month);
+      else if(pp.until && ui.month > pp.until) info = "oprit după " + mLabel(pp.until);
       else if(pp.term){
         var lm = provLastMonth(pp);
         info = (ui.month > lm) ? ("încheiat · ultima rată în " + mLabel(lm)) : ("începe în " + mLabel(pp.from));
@@ -1046,8 +1069,16 @@ function sheetIncome(kind, id){
        '<input class="inp num" id="iDay" type="number" min="1" max="31" inputmode="numeric" placeholder="ex. 25" value="'+((f&&f.day)?f.day:"")+'"></label>'+
        '<p class="hint" style="margin:-6px 2px 14px">Cu ziua completată, ecranul principal îți arată câte zile mai sunt până la următoarea încasare și ce plăți programate pică până atunci.</p></div>';
   h += '<input type="hidden" id="iKind" value="'+k+'">';
+  if(f && !fixedLive(f, ui.month) && ((f.skip && f.skip[ui.month]) || (f.until && ui.month > f.until))){
+    h += '<p class="hint" style="margin:0 2px 10px;color:var(--warn)">Momentan nu se aplică în '+esc(mLabel(ui.month))+'.</p>'+
+         '<button class="btn ghost" style="margin-bottom:10px" data-resume="fix|'+f.id+'">Reia din '+esc(mLabel(ui.month))+'</button>';
+  }
   h += '<button class="btn" data-save="inc" data-id="'+(cur?cur.id:"")+'">'+(cur?"Salvează":"Adaugă venitul")+'</button>';
-  if(cur) h += '<button class="btn dang" style="margin-top:8px" data-del="inc" data-id="'+cur.id+'" data-kind="'+k+'">Șterge</button>';
+  if(cur){
+    h += f
+      ? '<button class="btn dang" style="margin-top:8px" data-delscopeopen="fix|'+f.id+'">Șterge venitul…</button>'
+      : '<button class="btn dang" style="margin-top:8px" data-del="inc" data-id="'+cur.id+'" data-kind="var">Șterge</button>';
+  }
   openSheet(h);
   var hint = document.getElementById("kindHint");
   function setHint(kk){ if(hint) hint.textContent = kk==="fix" ? "Se adaugă automat în fiecare lună, începând cu "+mLabel(ui.month)+"." : "Se adaugă doar în "+mLabel(ui.month)+"."; }
@@ -1089,6 +1120,11 @@ function sheetProvision(id){
        '<label class="f"><span>Rata în '+esc(mLabel(ui.month).split(" ")[0])+'</span><input class="inp num" id="pIdx" type="number" min="1" inputmode="numeric" value="'+curIdx+'"></label>'+
        '<label class="f"><span>Din total rate</span><input class="inp num" id="pTot" type="number" min="1" inputmode="numeric" placeholder="ex. 24" value="'+((p&&p.term)?p.term:"")+'"></label>'+
        '</div><p class="hint" id="pTermHint" style="margin:-6px 2px 14px"></p></div>';
+  if(p && p.recurring && ((p.skip && p.skip[ui.month]) || (p.until && ui.month > p.until))){
+    h += '<p class="hint" style="margin:0 2px 10px;color:var(--warn)">'+
+         ((p.skip && p.skip[ui.month]) ? 'Sărit peste '+esc(mLabel(ui.month))+'.' : 'Oprit după '+esc(mLabel(p.until))+'.')+'</p>'+
+         '<button class="btn ghost" style="margin-bottom:14px" data-resume="prov|'+p.id+'">Reia din '+esc(mLabel(ui.month))+'</button>';
+  }
   if(p && (paid > 0 || settled)){
     var pays = provPayments(p, ui.month);
     h += '<div style="background:var(--surface2);border-radius:13px;padding:12px 14px;margin-bottom:14px">'+
@@ -1112,7 +1148,9 @@ function sheetProvision(id){
     } else {
       h += '<button class="btn ghost" style="margin-top:8px" data-reopenprov="'+p.id+'">Redeschide provizionul</button>';
     }
-    h += '<button class="btn dang" style="margin-top:8px" data-del="prov" data-id="'+p.id+'">Șterge provizionul</button>';
+    h += p.recurring
+      ? '<button class="btn dang" style="margin-top:8px" data-delscopeopen="prov|'+p.id+'">Șterge sau oprește provizionul…</button>'
+      : '<button class="btn dang" style="margin-top:8px" data-del="prov" data-id="'+p.id+'">Șterge provizionul</button>';
   }
   openSheet(h);
 
@@ -1180,6 +1218,51 @@ function sheetCat(id){
       document.getElementById("cCol").value = b.getAttribute("data-col");
     });
   });
+}
+
+/* --- ce fac cu un lucru care se repeta lunar --- */
+function sheetDeleteScope(kind, id){
+  var obj = (kind === "fix" ? S.fixed : S.provisions).filter(function(x){ return x.id === id; })[0];
+  if(!obj) return;
+  var m = ui.month, luna = mLabel(m), start = kind === "fix" ? fixedStart(obj) : (obj.from || m);
+  var isFirst = m <= start;
+  var h = '<h3>' + esc(obj.name) + '</h3>';
+  h += '<p class="hint" style="margin:-6px 2px 16px">Se repetă în fiecare lună. Alege de unde vrei să dispară — lunile pe care nu le atingi rămân exact cum sunt.</p>';
+  h += '<button class="btn ghost" style="margin-bottom:8px;text-align:left" data-delscope="'+kind+'|'+id+'|month">'+
+       '<b>Doar din '+esc(luna)+'</b><br><span style="font-weight:500;font-size:12.5px;opacity:.7">Sare peste luna asta, revine luna viitoare</span></button>';
+  if(!isFirst){
+    h += '<button class="btn ghost" style="margin-bottom:8px;text-align:left" data-delscope="'+kind+'|'+id+'|future">'+
+         '<b>Din '+esc(luna)+' înainte</b><br><span style="font-weight:500;font-size:12.5px;opacity:.7">Se oprește aici; lunile dinainte rămân neatinse</span></button>';
+  }
+  h += '<button class="btn dang" style="text-align:left" data-delscope="'+kind+'|'+id+'|all">'+
+       '<b>Din toate lunile</b><br><span style="font-weight:500;font-size:12.5px;opacity:.75">Șterge complet, inclusiv din trecut</span></button>';
+  openSheet(h);
+}
+function applyDeleteScope(kind, id, scope){
+  var list = kind === "fix" ? S.fixed : S.provisions;
+  var obj = list.filter(function(x){ return x.id === id; })[0];
+  if(!obj) return;
+  var m = ui.month, msg;
+  if(scope === "all"){
+    if(kind === "fix") S.fixed = S.fixed.filter(function(x){ return x.id !== id; });
+    else S.provisions = S.provisions.filter(function(x){ return x.id !== id; });
+    msg = "Șters din toate lunile";
+  } else if(scope === "month"){
+    obj.skip = obj.skip || {};
+    obj.skip[m] = true;
+    msg = "Scos doar din " + mLabel(m);
+  } else {
+    var start = kind === "fix" ? fixedStart(obj) : (obj.from || m);
+    if(m <= start){
+      if(kind === "fix") S.fixed = S.fixed.filter(function(x){ return x.id !== id; });
+      else S.provisions = S.provisions.filter(function(x){ return x.id !== id; });
+      msg = "Șters complet";
+    } else {
+      obj.until = shiftM(m, -1);
+      msg = "Se oprește după " + mLabel(obj.until);
+    }
+  }
+  closeSheet(); commit(msg);
 }
 
 /* --- backup / restore --- */
@@ -1363,7 +1446,7 @@ function deleteCat(id){
 
 /* ============ events ============ */
 document.addEventListener("click", function(ev){
-  var t = ev.target.closest ? ev.target.closest("[data-delhist],[data-install],[data-nav],[data-sheet],[data-editexp],[data-editprov],[data-editfix],[data-editinc],[data-editcat],[data-save],[data-del],[data-toggle],[data-copybud],[data-payprov],[data-closeprov],[data-reopenprov],[data-copytxt],[data-restore],[data-forget],[data-reset]") : null;
+  var t = ev.target.closest ? ev.target.closest("[data-delscopeopen],[data-delscope],[data-resume],[data-delhist],[data-install],[data-nav],[data-sheet],[data-editexp],[data-editprov],[data-editfix],[data-editinc],[data-editcat],[data-save],[data-del],[data-toggle],[data-copybud],[data-payprov],[data-closeprov],[data-reopenprov],[data-copytxt],[data-restore],[data-forget],[data-reset]") : null;
   if(!t) return;
   var a = function(k){ return t.getAttribute(k); };
 
@@ -1423,6 +1506,26 @@ document.addEventListener("click", function(ev){
       deferredInstall.prompt();
       deferredInstall.userChoice.then(function(){ deferredInstall = null; render(); });
     }
+    return;
+  }
+  if(a("data-delscopeopen")){
+    var q = a("data-delscopeopen").split("|");
+    closeSheet(); setTimeout(function(){ sheetDeleteScope(q[0], q[1]); }, 140);
+    return;
+  }
+  if(a("data-delscope")){
+    var w = a("data-delscope").split("|");
+    applyDeleteScope(w[0], w[1], w[2]);
+    return;
+  }
+  if(a("data-resume")){
+    var rp = a("data-resume").split("|");
+    var ro = (rp[0] === "fix" ? S.fixed : S.provisions).filter(function(x){ return x.id === rp[1]; })[0];
+    if(ro){
+      if(ro.skip) delete ro.skip[ui.month];
+      if(ro.until && ui.month > ro.until) ro.until = null;
+    }
+    closeSheet(); commit("Reluat din " + mLabel(ui.month));
     return;
   }
   if(a("data-delhist")){
@@ -1518,7 +1621,7 @@ window.__app = {
   totalOpenProv:totalOpenProv, byCategory:byCategory, budgetOf:budgetOf,
   provisionsFor:provisionsFor, provLastMonth:provLastMonth, provIdx:provIdx, provActive:provActive,
   provRemaining:provRemaining, provPaid:provPaid, provState:provState,
-  fixedAmount:fixedAmount, fixedStart:fixedStart, fixedChanges:fixedChanges, fixedFor:fixedFor,
+  fixedLive:fixedLive, applyDeleteScope:applyDeleteScope, fixedAmount:fixedAmount, fixedStart:fixedStart, fixedChanges:fixedChanges, fixedFor:fixedFor,
   nextSalary:nextSalary, provisionsDueBy:provisionsDueBy, dateForDay:dateForDay,
   guessCategory:guessCategory, learnFrom:learnFrom, normTxt:normTxt,
   uid:uid, seed:seed, render:render, save:save
