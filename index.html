@@ -407,6 +407,11 @@ var DICT = { en: {
   "Datele au fost șterse": "All data deleted",
   "Datele tale": "Your data",
   "Denumire": "Name",
+  "Depune": "Deposit",
+  "Depune în economii": "Deposit into savings",
+  "Depunere": "Deposit",
+  "Depunere înregistrată": "Deposit recorded",
+  "Depus în economii": "Deposited to savings",
   "Descarcă fișierul de backup": "Download backup file",
   "Descriere": "Description",
   "Din economii": "Out of savings",
@@ -443,6 +448,7 @@ var DICT = { en: {
   "Mișcări": "Activity",
   "Modificare ștearsă din istoric": "Change removed from history",
   "Nicio cheltuială în": "No expenses in",
+  "Nicio mișcare încă. Depune prima sumă.": "No movements yet. Make your first deposit.",
   "Nicio mișcare încă. Pune deoparte prima sumă.": "No movements yet. Set your first amount aside.",
   "Niciun buget setat pentru": "No budget set for",
   "Niciun buget setat. Apasă „Setează bugete”.": "No budgets set. Tap \\u201eSet budgets\\u201d.",
@@ -491,6 +497,7 @@ var DICT = { en: {
   "Restaurează datele": "Restore data",
   "Retrage": "Withdraw",
   "Retrage din economii": "Withdraw from savings",
+  "Retragere": "Withdrawal",
   "Retragi mai mult decât ai în economii (": "You are taking out more than you have in savings (",
   "Retras din economii": "Taken from savings",
   "Rezumat pe categorii ·": "Category summary ·",
@@ -559,6 +566,7 @@ var DICT = { en: {
   "cheltuieli": "expenses",
   "cheltuieli înregistrate": "expenses recorded",
   "de rate": "instalments",
+  "depus în": "deposited in",
   "depășit cu": "over by",
   "din economii": "out of savings",
   "editează": "edit",
@@ -1137,7 +1145,7 @@ function viewHome(){
       brow("var(--ok)",tr("Venituri"), inc, "inc")+
       brow("var(--danger)",tr("Cheltuieli"), -exp, "exp")+
       brow("var(--warn)",tr("Provizioane neachitate"), -prov, "prov")+
-      (sav !== 0 ? brow("#3B72D6", sav > 0 ? tr("Pus deoparte") : tr("Retras din economii"), -sav, "sav") : "")+
+      (sav !== 0 ? brow("#3B72D6", sav > 0 ? tr("Depus în economii") : tr("Retras din economii"), -sav, "sav") : "")+
     '</div>'+ salaryStrip(m) +'</div>';
 
   h += savingsCard(m);
@@ -1198,7 +1206,7 @@ function savingsCard(m){
   var bal = savingsBalance(m), net = savingsNet(m), n = savingsMovesFor(m).length;
   var plans = (S.savings.plans||[]).filter(function(pl){ return pl.active !== false && !isOff(pl, m) && m >= pl.from; });
   var sub;
-  if(net > 0) sub = tr("pus deoparte în")+" " + mLabel(m).split(" ")[0] + ": " + leiShort(net);
+  if(net > 0) sub = tr("depus în")+" " + mLabel(m).split(" ")[0] + ": " + leiShort(net);
   else if(net < 0) sub = tr("retras în")+" " + mLabel(m).split(" ")[0] + ": " + leiShort(-net);
   else sub = plans.length ? (plans.length === 1 ? tr("un transfer recurent activ") : plans.length + " "+tr("transferuri recurente")) : tr("nicio mișcare luna asta");
   return '<div class="sect"><h2>'+tr("Economii")+'</h2><button data-sheet="savings">'+tr("Vezi tot")+'</button></div>'+
@@ -1215,7 +1223,7 @@ function savingsCard(m){
       '</div>'+
       '<div class="hint" style="margin:8px 0 0">'+esc(sub)+'</div>'+
       '<div class="grid2" style="margin-top:12px">'+
-        '<button class="btn ghost" data-savemove="in">'+tr("Pune deoparte")+'</button>'+
+        '<button class="btn ghost" data-savemove="in">'+tr("Depune")+'</button>'+
         '<button class="btn ghost" data-savemove="out">'+tr("Retrage")+'</button>'+
       '</div>'+
     '</div></div>';
@@ -1770,7 +1778,7 @@ function sheetSavings(){
     '<span class="num" style="display:block;font-size:30px;font-weight:600;letter-spacing:-.035em;margin-top:2px;color:'+(bal<0?"var(--danger)":"var(--text)")+'">'+esc(lei(bal))+'</span>'+
     '</div>';
   h += '<div class="grid2" style="margin-bottom:8px">'+
-    '<button class="btn ghost" data-savemove="in">'+tr("Pune deoparte")+'</button>'+
+    '<button class="btn ghost" data-savemove="in">'+tr("Depune")+'</button>'+
     '<button class="btn ghost" data-savemove="out">'+tr("Retrage")+'</button></div>';
   h += '<button class="btn ghost" style="margin-bottom:16px" data-saveplan="new">'+tr("+ Transfer recurent")+'</button>';
 
@@ -1790,7 +1798,7 @@ function sheetSavings(){
   var moves = S.savings.moves.slice().sort(function(a,b){ return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; }).slice(0, 60);
   h += '<div class="sect" style="margin:22px 2px 8px"><h2>'+tr("Mișcări")+'</h2></div>';
   if(!moves.length){
-    h += '<div class="empty">'+tr("Nicio mișcare încă. Pune deoparte prima sumă.")+'</div>';
+    h += '<div class="empty">'+tr("Nicio mișcare încă. Depune prima sumă.")+'</div>';
   } else {
     var curM = "";
     moves.forEach(function(x){
@@ -1798,7 +1806,7 @@ function sheetSavings(){
       if(mm !== curM){ curM = mm; h += '<div class="daysep">'+esc(mLabel(mm))+'</div>'; }
       h += '<button class="row" data-savemoveedit="'+x.id+'">'+
         '<span class="chip" style="background:'+tint(x.dir==="in"?"#3B72D6":"#B5721A",.14)+';color:'+(x.dir==="in"?"#3B72D6":"#B5721A")+'">'+esc(x.dir==="in"?"↑":"↓")+'</span>'+
-        '<span class="main"><span class="t">'+esc(x.note || (x.dir==="in"?tr("Pus deoparte"):"Retras"))+'</span>'+
+        '<span class="main"><span class="t">'+esc(x.note || (x.dir==="in"?tr("Depunere"):tr("Retragere")))+'</span>'+
         '<span class="s">'+esc(dayLabel(x.date))+(x.planId?" "+tr("· recurent"):"")+'</span></span>'+
         '<span class="amt num" style="color:'+(x.dir==="in"?"var(--accent-ink)":"var(--warn)")+'">'+(x.dir==="in"?"+":"−")+esc(lei(x.amount))+'</span></button>';
     });
@@ -1808,18 +1816,20 @@ function sheetSavings(){
 function sheetSavingsMove(dir, id){
   var mv = id ? S.savings.moves.filter(function(x){ return x.id===id; })[0] : null;
   if(mv) dir = mv.dir;
-  var h = '<h3>'+(mv ? tr("Editează transferul") : (dir==="in" ? tr("Pune deoparte") : tr("Retrage din economii")))+'</h3>';
+  var h = '<h3>'+(mv ? tr("Editează transferul") : (dir==="in" ? tr("Depune în economii") : tr("Retrage din economii")))+'</h3>';
   if(!mv){
     h += '<p class="hint" style="margin:-6px 2px 14px">'+(dir==="in"
       ? tr("Suma iese din soldul lunii și intră în economii.")
       : tr("Suma iese din economii și se adaugă la soldul lunii."))+'</p>';
   }
+  if(dir !== "in" || mv){
   h += '<label class="f"><span>'+tr("Descriere")+'</span><input class="inp" id="svNote" data-focus placeholder="'+(dir==="in"?tr("ex. economii lunare"):tr("ex. pentru vacanță"))+'" value="'+esc(mv?mv.note:"")+'"></label>';
-  h += moneyField(tr("Sumă"), "svAmt", mv?mv.amount:null);
+  }
+  h += moneyField(tr("Sumă"), "svAmt", mv?mv.amount:null).replace('class="inp money"', (dir === "in" && !mv) ? 'class="inp money" data-focus' : 'class="inp money"');
   h += '<label class="f"><span>'+tr("Data")+'</span><input class="inp" type="date" id="svDate" value="'+(mv?mv.date:dateInMonth(ui.month))+'"></label>';
   h += '<p class="hint" id="svHint" style="margin:-6px 2px 14px"></p>';
   h += '<input type="hidden" id="svDir" value="'+dir+'">';
-  h += '<button class="btn" data-save="svmove" data-id="'+(mv?mv.id:"")+'">'+(mv?tr("Salvează"):(dir==="in"?tr("Pune deoparte"):tr("Retrage")))+'</button>';
+  h += '<button class="btn" data-save="svmove" data-id="'+(mv?mv.id:"")+'">'+(mv?tr("Salvează"):(dir==="in"?tr("Depune"):tr("Retrage")))+'</button>';
   if(mv) h += '<button class="btn dang" style="margin-top:8px" data-del="svmove" data-id="'+mv.id+'">'+tr("Șterge")+'</button>';
   openSheet(h);
   var amtEl = document.getElementById("svAmt"), hintEl = document.getElementById("svHint");
@@ -1853,7 +1863,8 @@ function sheetSavingsPlan(id){
 function saveSavingsMove(id){
   var amt = parseNum(document.getElementById("svAmt").value);
   if(amt <= 0){ toast(tr("Adaugă o sumă mai mare ca zero")); return; }
-  var note = document.getElementById("svNote").value.trim();
+  var noteEl = document.getElementById("svNote");
+  var note = noteEl ? noteEl.value.trim() : "";
   var date = document.getElementById("svDate").value || dateInMonth(ui.month);
   var dir = document.getElementById("svDir").value;
   if(id){
@@ -1862,7 +1873,7 @@ function saveSavingsMove(id){
   } else {
     S.savings.moves.push({ id:uid(), amount:amt, note:note, date:date, dir:dir });
   }
-  closeSheet(); commit(dir === "in" ? tr("Pus deoparte") : tr("Retras din economii"));
+  closeSheet(); commit(dir === "in" ? tr("Depunere înregistrată") : tr("Retras din economii"));
 }
 function saveSavingsPlan(id){
   var name = document.getElementById("spName").value.trim() || tr("Transfer recurent");
