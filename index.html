@@ -94,7 +94,14 @@ button{cursor:pointer;border:none;background:none}
 .balance .big{font-size:40px;font-weight:600;line-height:1.05;margin:6px 0 2px;letter-spacing:-.035em}
 .balance .big.neg{color:var(--danger)}
 .balance .sub{font-size:13px;color:var(--muted)}
-.breakdown{display:flex;flex-direction:column;gap:1px;margin-top:16px;border-top:1px solid var(--line);padding-top:12px}
+.realrow{display:flex;flex-direction:column;gap:0;margin-top:14px;padding:6px 12px;border-radius:11px;background:var(--surface2)}
+.realrow .rline{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:6px 0;background:none;border:0;text-align:left;font:inherit;color:inherit}
+.realrow .rline + .rline{border-top:1px solid var(--line)}
+.realrow .rline.tap{cursor:pointer}
+.realrow .rline.tap .k::after{content:" ›";color:var(--faint)}
+.realrow .k{font-size:13px;font-weight:600;color:var(--muted)}
+.realrow .v{font-size:15.5px;font-weight:700;letter-spacing:-.02em}
+.breakdown{display:flex;flex-direction:column;gap:1px;margin-top:12px;padding-top:2px}
 .brow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 0}
 .brow .k{display:flex;align-items:center;gap:9px;font-size:14px;color:var(--muted)}
 .brow .k i{width:8px;height:8px;border-radius:3px;display:block;font-style:normal}
@@ -190,9 +197,10 @@ select.inp{appearance:none;background-image:linear-gradient(45deg,transparent 50
   border-top:1px solid var(--line);display:flex;
   padding:6px 6px calc(6px + env(safe-area-inset-bottom));
 }
-.nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 2px;border-radius:12px;color:var(--faint);font-size:10.5px;font-weight:600;letter-spacing:.01em}
+.nav button{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 1px;border-radius:12px;color:var(--faint);font-size:9.5px;font-weight:600;letter-spacing:0}
+.nav button span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nav button[aria-current="true"]{color:var(--accent-ink)}
-.nav svg{width:21px;height:21px}
+.nav svg{width:20px;height:20px}
 .fab{
   position:fixed;z-index:41;right:max(16px,calc(50vw - 254px));bottom:calc(78px + env(safe-area-inset-bottom));
   width:54px;height:54px;border-radius:18px;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;
@@ -413,6 +421,7 @@ var DICT = { en: {
   "Depune în economii": "Deposit into savings",
   "Depunere": "Deposit",
   "Depunere înregistrată": "Deposit recorded",
+  "Depus în": "Put aside in",
   "Depus în economii": "Deposited to savings",
   "Depășit cu": "Over by",
   "Descarcă fișierul de backup": "Download backup file",
@@ -455,6 +464,7 @@ var DICT = { en: {
   "Nicio mișcare încă. Pune deoparte prima sumă.": "No movements yet. Set your first amount aside.",
   "Niciun buget setat pentru": "No budget set for",
   "Niciun buget setat. Apasă „Setează bugete”.": "No budgets set. Tap \\u201eSet budgets\\u201d.",
+  "Niciun transfer recurent. Setează o sumă care se mută automat în fiecare lună.": "No recurring transfer yet. Set an amount that moves automatically every month.",
   "Niciun venit înregistrat. Începe cu venitul lunar stabil.": "No income recorded. Start with your regular monthly income.",
   "Nimic de raportat pentru luna asta.": "Nothing to report for this month.",
   "Nimic provizionat. Adaugă ratele, abonamentele sau alte cheltuieli pe care le știi dinainte — se scad din sold până le înregistrezi.": "Nothing set aside yet. Add loan payments, subscriptions or any expense you already know about — they come off your balance until you record them.",
@@ -504,6 +514,7 @@ var DICT = { en: {
   "Retragere": "Withdrawal",
   "Retragi mai mult decât ai în economii (": "You are taking out more than you have in savings (",
   "Retras din economii": "Taken from savings",
+  "Retras în": "Taken out in",
   "Rezumat pe categorii ·": "Category summary ·",
   "Rămas": "Left",
   "Rămas (fără report)": "Left (no carry-over)",
@@ -564,6 +575,7 @@ var DICT = { en: {
   "achitat": "paid",
   "achitat {0} din {1}": "{0} of {1} paid",
   "acoperit": "covered",
+  "acum": "now",
   "azi": "today",
   "buget personal": "personal budget",
   "buget standard": "standard budget",
@@ -586,6 +598,7 @@ var DICT = { en: {
   "ex. pentru vacanță": "e.g. for the holiday",
   "fără buget standard": "no standard budget",
   "fără limită setată": "no limit set",
+  "la finalul lunii": "at the end of",
   "lunar pe": "monthly on the",
   "lunar, nelimitat": "monthly, no end date",
   "mai ai": "left:",
@@ -636,6 +649,9 @@ var DICT = { en: {
   "· scadent pe": "· due on the",
   "Îl las deschis": "Leave it open",
   "În": "In",
+  "În cont acum": "In the account now",
+  "În cont la finalul lunii": "In the account at month end",
+  "În economii": "In savings",
   "În {0} cade {1}, zi lucrătoare — rămâne pe {2}.": "In {0} it falls on a {1}, a working day — it stays on the {2}.",
   "În {0}, {1} cade {2} — aplicația folosește <b>{3}, {4}</b>, ultima zi lucrătoare dinainte.": "In {0}, the {1} falls on a {2} — the app uses <b>{3} the {4}</b>, the last working day before it.",
   "Începe din": "Starts in",
@@ -653,6 +669,7 @@ var DICT = { en: {
   "încheiat · ultima rată în": "finished · last instalment in",
   "închis": "closed",
   "înregistrări. Le ștergi odată cu ea?": "records. Delete them along with it?",
+  "îți mai trebuie {0}": "you still need {0}",
   "Șterge": "Delete",
   "Șterge categoria": "Delete category",
   "Șterge complet, inclusiv din trecut": "Deletes it entirely, past included",
@@ -970,6 +987,37 @@ function carryInto(m){
 }
 function balance(m){ return carryInto(m) + totalIncome(m) - totalExpense(m) - totalOpenProv(m) - savingsNet(m); }
 
+/* ---- soldul real: doar ce a intrat si a iesit efectiv pana azi ---- */
+function receivedIncome(m){
+  var cur = curMonth();
+  if(m < cur) return totalIncome(m);
+  if(m > cur) return 0;
+  var today = startOfToday(), t = 0;
+  fixedFor(m).forEach(function(f){
+    var amt = fixedAmount(f, m);
+    if(amt === null) return;
+    if(!f.day){ t += amt; return; }                 /* fara zi stabilita = considerat incasat */
+    if(salaryDate(m, f.day) <= today) t += amt;
+  });
+  incomesFor(m).forEach(function(i){ t += i.amount; });  /* variabile: le treci cand le primesti */
+  return t;
+}
+function spentSoFar(m){
+  var lim = todayISO(), t = 0;
+  expensesFor(m).forEach(function(e){ if(e.date <= lim) t += e.amount; });
+  return t;
+}
+function savingsNetSoFar(m){
+  var lim = todayISO(), t = 0;
+  savingsMovesFor(m).forEach(function(x){ if(x.date <= lim) t += (x.dir === "out" ? -x.amount : x.amount); });
+  return Math.round(t*100)/100;
+}
+/* null pentru lunile viitoare — acolo nu exista "acum" */
+function realBalance(m){
+  if(m > curMonth()) return null;
+  return Math.round((carryInto(m) + receivedIncome(m) - spentSoFar(m) - savingsNetSoFar(m)) * 100) / 100;
+}
+
 function byCategory(m){
   var map = {};
   expensesFor(m).forEach(function(e){
@@ -1105,6 +1153,7 @@ function render(){
   document.getElementById("mLabel").innerHTML = esc(mLabel(ui.month).split(" ")[0]) + "<span>" + esc(ui.month.split("-")[0]) + "</span>";
   renderNav();
   if(ui.view==="home") view.innerHTML = viewHome();
+  else if(ui.view==="savings") view.innerHTML = viewSavings();
   else if(ui.view==="list") view.innerHTML = viewList();
   else if(ui.view==="budget") view.innerHTML = viewBudget();
   else if(ui.view==="report") view.innerHTML = viewReport();
@@ -1114,6 +1163,7 @@ function render(){
 
 var NAVITEMS = [
   {k:"home", t:"Sold", d:"M3 10.5 12 3l9 7.5M5.5 9.5V20h13V9.5"},
+  {k:"savings", t:"Economii", d:"M12 3v10m0 0 4-4m-4 4-4-4M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"},
   {k:"list", t:"Mișcări", d:"M4 7h16M4 12h16M4 17h10"},
   {k:"budget", t:"Bugete", d:"M12 3a9 9 0 1 0 9 9h-9Z M12 3v9h9"},
   {k:"report", t:"Raport", d:"M5 20V10M12 20V4M19 20v-7"},
@@ -1144,6 +1194,7 @@ function viewHome(){
       ? '<p class="hint" style="margin:10px 0 0">'+tr("Reportul din")+' '+esc(mLabel(shiftM(m,-1)))+
         ' '+tr("se adaugă automat pe 1")+' '+esc(MONTHS[+m.split("-")[1]-1].toLowerCase())+tr(", când luna se încheie. Până atunci vezi doar mișcările lunii.")+'</p>'
       : '')+
+    realStrip(m)+
     '<div class="breakdown">'+
       ((S.carry && m > firstMonth())
         ? (carryPending(m)
@@ -1157,7 +1208,6 @@ function viewHome(){
       (sav !== 0 ? brow("#3B72D6", sav > 0 ? tr("Depus în economii") : tr("Retras din economii"), -sav, "sav") : "")+
     '</div>'+ salaryStrip(m) +'</div>';
 
-  h += savingsCard(m);
 
   var open = openProvisions(m);
   h += '<div class="sect"><h2>'+tr("Provizioane")+'</h2><button data-sheet="prov">'+tr("+ Adaugă")+'</button></div><div class="stack" style="margin-top:8px">';
@@ -1209,46 +1259,25 @@ function viewHome(){
   }
   h += '</div>';
 
-  var bcats = budgetedCats(m);
-  h += '<div class="sect"><h2>'+tr("Bugete")+'</h2><button data-nav="budget">'+tr("Vezi tot")+'</button></div><div class="stack" style="margin-top:8px">';
-  if(!bcats.length){
-    h += '<div class="empty">'+tr("Niciun buget setat pentru")+' '+esc(mLabel(m))+'. <br><button class="btn ghost" data-nav="budget" style="margin-top:12px;width:auto;padding:9px 16px">'+tr("Setează bugete")+'</button></div>';
-  } else {
-    h += bcats.slice(0,4).map(function(c){ return budRow(m,c); }).join("");
-  }
-  h += '</div>';
-
-  var last = expensesFor(m).slice().sort(function(a,b){ return a.date<b.date?1:a.date>b.date?-1:(b.ts||0)-(a.ts||0); }).slice(0,5);
-  h += '<div class="sect"><h2>'+tr("Ultimele cheltuieli")+'</h2><button data-nav="list">'+tr("Vezi tot")+'</button></div><div class="stack" style="margin-top:8px">';
-  h += last.length ? last.map(expRow).join("") : '<div class="empty">'+tr("Nicio cheltuială în")+' '+esc(mLabel(m))+'.</div>';
-  h += '</div>';
   return h;
 }
-function savingsCard(m){
-  var bal = savingsBalance(m), net = savingsNet(m), n = savingsMovesFor(m).length;
-  var plans = (S.savings.plans||[]).filter(function(pl){ return pl.active !== false && !isOff(pl, m) && m >= pl.from; });
-  var sub;
-  if(net > 0) sub = tr("depus în")+" " + mLabel(m).split(" ")[0] + ": " + leiShort(net);
-  else if(net < 0) sub = tr("retras în")+" " + mLabel(m).split(" ")[0] + ": " + leiShort(-net);
-  else sub = plans.length ? (plans.length === 1 ? tr("un transfer recurent activ") : plans.length + " "+tr("transferuri recurente")) : tr("nicio mișcare luna asta");
-  return '<div class="sect"><h2>'+tr("Economii")+'</h2><button data-sheet="savings">'+tr("Vezi tot")+'</button></div>'+
-    '<div class="stack" style="margin-top:8px"><div class="card" style="padding:15px 16px">'+
-      '<div style="display:flex;align-items:center;gap:12px">'+
-        '<span class="chip" style="width:38px;height:38px;border-radius:12px;background:'+tint("#3B72D6",.13)+';color:#3B72D6">'+
-          '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v10m0 0 4-4m-4 4-4-4M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>'+
-        '</span>'+
-        '<span style="flex:1;min-width:0">'+
-          '<span style="display:block;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint)">'+tr("Sold economii")+'</span>'+
-          '<span class="num" style="display:block;font-size:23px;font-weight:600;letter-spacing:-.03em;margin-top:1px;color:'+(bal<0?"var(--danger)":"var(--text)")+'">'+esc(lei(bal))+'</span>'+
-        '</span>'+
-        (n ? '<span class="cnt">'+n+(n===1?" "+tr("mișcare"):" "+tr("mișcări"))+'</span>' : '')+
-      '</div>'+
-      '<div class="hint" style="margin:8px 0 0">'+esc(sub)+'</div>'+
-      '<div class="grid2" style="margin-top:12px">'+
-        '<button class="btn ghost" data-savemove="in">'+tr("Depune")+'</button>'+
-        '<button class="btn ghost" data-savemove="out">'+tr("Retrage")+'</button>'+
-      '</div>'+
-    '</div></div>';
+function realStrip(m){
+  var r = realBalance(m);
+  var areSav = (S.savings.moves||[]).length > 0 || (S.savings.plans||[]).length > 0;
+  if(r === null && !areSav) return "";
+  var past = m < curMonth();
+  var h = '<div class="realrow">';
+  if(r !== null){
+    h += '<span class="rline"><span class="k">'+esc(past ? tr("În cont la finalul lunii") : tr("În cont acum"))+'</span>'+
+         '<span class="v num"'+(r<0?' style="color:var(--danger)"':'')+'>'+esc(lei(r))+'</span></span>';
+  }
+  if(areSav){
+    var sav = savingsBalance(m);
+    h += '<button type="button" class="rline tap" data-nav="savings">'+
+         '<span class="k">'+esc(tr("În economii"))+'</span>'+
+         '<span class="v num"'+(sav<0?' style="color:var(--danger)"':'')+'>'+esc(lei(sav))+'</span></button>';
+  }
+  return h + '</div>';
 }
 function salaryStrip(m){
   if(m !== mk(new Date())) return "";
@@ -1264,9 +1293,13 @@ function salaryStrip(m){
   var sum = 0; due.forEach(function(q){ sum += q.x.remaining; });
   var second = "";
   if(due.length){
-    second = '<span class="np-row"><i style="background:var(--warn)"></i><span>' +
+    var real = realBalance(m), lipsa = (real === null) ? 0 : Math.round((sum - real) * 100) / 100;
+    var scurt = lipsa > 0;
+    second = '<span class="np-row"><i style="background:'+(scurt?"var(--danger)":"var(--warn)")+'"></i><span>' +
       due.length + (due.length === 1 ? ' '+tr("plată programată până atunci ·")+' ' : ' '+tr("plăți programate până atunci ·")+' ') +
-      '<b class="num">' + esc(lei(sum)) + '</b></span></span>';
+      '<b class="num">' + esc(lei(sum)) + '</b>' +
+      (scurt ? ' · <b style="color:var(--danger)">' + esc(tr("îți mai trebuie {0}", leiShort(lipsa))) + '</b>' : '') +
+      '</span></span>';
   }
   return '<div class="nextpay">'+
     '<span class="np-row"><i style="background:var(--ok)"></i><span>'+esc(ns.f.name)+' '+esc(when)+
@@ -1799,21 +1832,28 @@ function sheetCat(id){
 }
 
 /* --- economii: ecran complet --- */
-function sheetSavings(){
-  var m = ui.month, bal = savingsBalance(m);
-  var h = '<h3>'+tr("Economii")+'</h3>';
-  h += '<div class="card" style="padding:14px 16px;margin-bottom:14px;box-shadow:none;background:var(--surface2);border-color:transparent">'+
-    '<span style="display:block;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint)">'+tr("Sold la finalul lunii")+' '+esc(mLabel(m).split(" ")[0])+'</span>'+
-    '<span class="num" style="display:block;font-size:30px;font-weight:600;letter-spacing:-.035em;margin-top:2px;color:'+(bal<0?"var(--danger)":"var(--text)")+'">'+esc(lei(bal))+'</span>'+
-    '</div>';
-  h += '<div class="grid2" style="margin-bottom:8px">'+
-    '<button class="btn ghost" data-savemove="in">'+tr("Depune")+'</button>'+
-    '<button class="btn ghost" data-savemove="out">'+tr("Retrage")+'</button></div>';
-  h += '<button class="btn ghost" style="margin-bottom:16px" data-saveplan="new">'+tr("+ Transfer recurent")+'</button>';
+function viewSavings(){
+  var m = ui.month, bal = savingsBalance(m), net = savingsNet(m);
+  var past = m < curMonth();
+  var h = '<div class="card balance stack" style="margin-top:12px">'+
+    '<div><div class="lbl">'+tr("Sold economii")+'</div>'+
+    '<div class="big num'+(bal<0?" neg":"")+'">'+esc(lei(bal))+'</div>'+
+    '<div class="sub">'+esc(past ? tr("la finalul lunii")+" "+mLabel(m).split(" ")[0] : tr("acum"))+'</div></div>'+
+    (net !== 0
+      ? '<div class="realrow"><span class="rline"><span class="k">'+
+        esc(net > 0 ? tr("Depus în")+" "+mLabel(m).split(" ")[0] : tr("Retras în")+" "+mLabel(m).split(" ")[0])+
+        '</span><span class="v num">'+esc(lei(Math.abs(net)))+'</span></span></div>'
+      : '')+
+    '<div class="grid2" style="margin-top:14px">'+
+      '<button class="btn ghost" data-savemove="in">'+tr("Depune")+'</button>'+
+      '<button class="btn ghost" data-savemove="out">'+tr("Retrage")+'</button>'+
+    '</div></div>';
 
   var plans = S.savings.plans || [];
-  if(plans.length){
-    h += '<div class="sect" style="margin:0 2px 8px"><h2>'+tr("Transferuri recurente")+'</h2></div>';
+  h += '<div class="sect"><h2>'+tr("Transferuri recurente")+'</h2><button data-saveplan="new">'+tr("+ Adaugă")+'</button></div><div class="stack" style="margin-top:8px">';
+  if(!plans.length){
+    h += '<div class="empty">'+tr("Niciun transfer recurent. Setează o sumă care se mută automat în fiecare lună.")+'</div>';
+  } else {
     h += plans.map(function(pl){
       var live = pl.active !== false && !isOff(pl, m) && m >= pl.from;
       var why = live ? (tr("în fiecare lună pe")+" " + (pl.day||1)) : (offReason(pl, m) || (tr("începe din")+" " + mLabel(pl.from)));
@@ -1823,9 +1863,10 @@ function sheetSavings(){
         '<span class="amt num">'+esc(lei(pl.amount))+'</span></button>';
     }).join("");
   }
+  h += '</div>';
 
   var moves = S.savings.moves.slice().sort(function(a,b){ return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; }).slice(0, 60);
-  h += '<div class="sect" style="margin:22px 2px 8px"><h2>'+tr("Mișcări")+'</h2></div>';
+  h += '<div class="sect"><h2>'+tr("Mișcări")+'</h2></div><div class="stack" style="margin-top:8px">';
   if(!moves.length){
     h += '<div class="empty">'+tr("Nicio mișcare încă. Depune prima sumă.")+'</div>';
   } else {
@@ -1840,7 +1881,8 @@ function sheetSavings(){
         '<span class="amt num" style="color:'+(x.dir==="in"?"var(--accent-ink)":"var(--warn)")+'">'+(x.dir==="in"?"+":"−")+esc(lei(x.amount))+'</span></button>';
     });
   }
-  openSheet(h);
+  h += '</div>';
+  return h;
 }
 function sheetSavingsMove(dir, id){
   var mv = id ? S.savings.moves.filter(function(x){ return x.id===id; })[0] : null;
@@ -2284,7 +2326,7 @@ document.addEventListener("click", function(ev){
     else if(s==="prov") sheetProvision(null);
     else if(s==="budget") sheetBudget();
     else if(s==="cat") sheetCat(null);
-    else if(s==="savings") sheetSavings();
+    else if(s==="savings"){ closeSheet(); ui.view = "savings"; render(); }
     else if(s==="archive") sheetArchive();
     else if(s==="backup") sheetBackup();
     else if(s==="restore") sheetRestore();
@@ -2453,7 +2495,10 @@ window.addEventListener("appinstalled", function(){ deferredInstall = null; if(u
 
 document.getElementById("prevM").addEventListener("click", function(){ ui.month = shiftM(ui.month,-1); render(); });
 document.getElementById("nextM").addEventListener("click", function(){ ui.month = shiftM(ui.month,1); render(); });
-document.getElementById("fab").addEventListener("click", function(){ sheetExpense(null); });
+document.getElementById("fab").addEventListener("click", function(){
+  if(ui.view === "savings") sheetSavingsMove("in", null);
+  else sheetExpense(null);
+});
 document.addEventListener("keydown", function(e){ if(e.key==="Escape") closeSheet(); });
 
 /* theme */
@@ -2504,6 +2549,7 @@ window.__app = {
   parseNum:parseNum, tr:tr, applyLang:applyLang,
   prevWorkday:prevWorkday, salaryDate:salaryDate, isWeekendDay:isWeekendDay,
   savingsBalance:savingsBalance, savingsNet:savingsNet, savingsMovesFor:savingsMovesFor, materializeSavings:materializeSavings,
+  realBalance:realBalance, receivedIncome:receivedIncome, spentSoFar:spentSoFar,
   carryPending:carryPending, curMonth:curMonth, carryInto:carryInto, fixedLive:fixedLive, archivedItems:archivedItems, reactivateFrom:reactivateFrom, isOff:isOff, addOff:addOff, applyDeleteScope:applyDeleteScope, fixedAmount:fixedAmount, fixedStart:fixedStart, fixedChanges:fixedChanges, fixedFor:fixedFor,
   nextSalary:nextSalary, provisionsDueBy:provisionsDueBy, dateForDay:dateForDay,
   guessCategory:guessCategory, learnFrom:learnFrom, normTxt:normTxt,
