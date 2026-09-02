@@ -86,6 +86,16 @@ button{cursor:pointer;border:none;background:none}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow)}
 .stack{display:flex;flex-direction:column;gap:12px;margin-top:12px}
 .sect{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:22px 2px 2px}
+.mvpick{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.mvpick button{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:13px 14px;text-align:left;font:inherit;color:inherit}
+.mvpick button[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.mvpick .lb{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.mvpick .lb i{width:7px;height:7px;border-radius:50%;flex:0 0 auto}
+.mvpick .vl{display:block;font-family:var(--fm);font-size:18px;font-weight:600;letter-spacing:-.02em;margin-top:5px}
+.mvpick .cn{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.sect .addbig{width:38px;height:38px;border-radius:12px;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;flex:0 0 auto;align-self:center;box-shadow:0 4px 12px -5px rgba(14,140,130,.6)}
+.sect .addbig svg{width:21px;height:21px}
+.sect:has(.addbig){align-items:center}
 .sect h2{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin:0}
 .sect button{font-size:13px;font-weight:600;color:var(--accent-ink)}
 
@@ -339,7 +349,7 @@ function save(){
 }
 
 var S = load();
-var ui = { month: mk(new Date()), view: "home" };
+var ui = { month: mk(new Date()), view: "home", mv: "exp" };
 var deferredInstall = null;
 
 /* ============ helpers ============ */
@@ -360,9 +370,11 @@ var DICT = { en: {
   "Adaug-o pe ecranul principal ca să pornească fără bara browserului și să meargă și fără internet.": "Add it to your home screen so it opens without the browser bar and works offline.",
   "Adaugă categoria": "Add category",
   "Adaugă cheltuiala": "Add expense",
+  "Adaugă cheltuială": "Add expense",
   "Adaugă o sumă mai mare ca zero": "Enter an amount greater than zero",
   "Adaugă provizionul": "Add set-aside",
   "Adaugă transferul": "Add transfer",
+  "Adaugă venit": "Add income",
   "Adaugă venitul": "Add income",
   "Alege fișierul de backup": "Choose backup file",
   "Am uitat categoriile învățate": "Learned categories forgotten",
@@ -601,6 +613,10 @@ var DICT = { en: {
   "ex. pentru vacanță": "e.g. for the holiday",
   "fără buget standard": "no standard budget",
   "fără limită setată": "no limit set",
+  "ieșire": "entry",
+  "ieșiri": "entries",
+  "intrare": "entry",
+  "intrări": "entries",
   "la finalul lunii": "at the end of",
   "lunar pe": "monthly on the",
   "lunar, nelimitat": "monthly, no end date",
@@ -1370,34 +1386,60 @@ function budRow(m,c){
 
 /* ---- LIST ---- */
 function viewList(){
-  var m = ui.month, h = "";
-  var inc = incomesFor(m), fx = fixedFor(m);
-  h += '<div class="sect" style="margin-top:14px"><h2>'+tr("Venituri ·")+' '+esc(lei(totalIncome(m)))+'</h2><button data-sheet="inc">'+tr("+ Adaugă")+'</button></div><div class="stack" style="margin-top:8px">';
-  if(!fx.length && !inc.length){
-    h += '<div class="empty">'+tr("Niciun venit înregistrat. Începe cu venitul lunar stabil.")+'</div>';
-  } else {
-    h += fx.map(function(f){
-      return '<button class="row" data-editfix="'+f.id+'">'+
-        '<span class="chip" style="background:var(--ok-soft);color:var(--ok)">F</span>'+
-        '<span class="main"><span class="t">'+esc(f.name)+'</span><span class="s">'+tr("venit fix ·")+' '+(f.day
-          ? (tr("lunar pe")+" " + f.day + (isWeekendDay(m, f.day) ? (" → " + tr("{0} în {1}", salaryDate(m, f.day).getDate(), mLabel(m).split(" ")[0].toLowerCase())) : ""))
-          : tr("în fiecare lună"))+'</span></span>'+
-        '<span class="amt in num">+'+esc(lei(fixedAmount(f, m)))+'</span></button>';
-    }).join("");
-    h += inc.map(function(i){
-      return '<button class="row" data-editinc="'+i.id+'">'+
-        '<span class="chip" style="background:var(--surface2);color:var(--muted)">V</span>'+
-        '<span class="main"><span class="t">'+esc(i.name)+'</span><span class="s">'+tr("venit variabil ·")+' '+esc(mLabel(m))+'</span></span>'+
-        '<span class="amt in num">+'+esc(lei(i.amount))+'</span></button>';
-    }).join("");
-  }
-  h += '</div>';
+  var m = ui.month;
+  var inc = incomesFor(m), fx = fixedFor(m), exps = expensesFor(m);
+  var nIn = fx.length + inc.length, nEx = exps.length;
+  var tab = ui.mv === "inc" ? "inc" : "exp";
+  var h = "";
 
-  var exps = expensesFor(m).slice().sort(function(a,b){ return a.date<b.date?1:a.date>b.date?-1:(b.ts||0)-(a.ts||0); });
-  h += '<div class="sect"><h2>'+tr("Cheltuieli ·")+' '+esc(lei(totalExpense(m)))+'</h2><button data-sheet="exp">'+tr("+ Adaugă")+'</button></div>';
-  if(!exps.length){ h += '<div class="stack" style="margin-top:8px"><div class="empty">'+tr("Nicio cheltuială în")+' '+esc(mLabel(m))+'.</div></div>'; return h; }
+  /* alegerea: venituri sau cheltuieli */
+  h += '<div class="mvpick">'+
+    '<button data-mv="inc" aria-pressed="'+(tab==="inc")+'">'+
+      '<span class="lb"><i style="background:var(--ok)"></i>'+tr("Venituri")+'</span>'+
+      '<span class="vl" style="color:var(--ok)">'+esc(lei(totalIncome(m)))+'</span>'+
+      '<span class="cn">'+nIn+' '+tr(nIn===1?"intrare":"intrări")+'</span></button>'+
+    '<button data-mv="exp" aria-pressed="'+(tab==="exp")+'">'+
+      '<span class="lb"><i style="background:var(--danger)"></i>'+tr("Cheltuieli")+'</span>'+
+      '<span class="vl">'+esc(lei(totalExpense(m)))+'</span>'+
+      '<span class="cn">'+nEx+' '+tr(nEx===1?"ieșire":"ieșiri")+'</span></button>'+
+    '</div>';
+
+  var plus = '<button class="addbig" data-sheet="'+(tab==="inc"?"inc":"exp")+'" aria-label="'+
+    (tab==="inc"?tr("Adaugă venit"):tr("Adaugă cheltuială"))+'">'+
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>';
+
+  if(tab === "inc"){
+    h += '<div class="sect"><h2>'+tr("Venituri ·")+' '+esc(mLabel(m))+'</h2>'+plus+'</div><div class="stack" style="margin-top:8px">';
+    if(!nIn){
+      h += '<div class="empty">'+tr("Niciun venit înregistrat. Începe cu venitul lunar stabil.")+'</div>';
+    } else {
+      h += fx.map(function(f){
+        return '<button class="row" data-editfix="'+f.id+'">'+
+          '<span class="chip" style="background:var(--ok-soft);color:var(--ok)">F</span>'+
+          '<span class="main"><span class="t">'+esc(f.name)+'</span><span class="s">'+tr("venit fix ·")+' '+(f.day
+            ? (tr("lunar pe")+" " + f.day + (isWeekendDay(m, f.day) ? (" → " + tr("{0} în {1}", salaryDate(m, f.day).getDate(), mLabel(m).split(" ")[0].toLowerCase())) : ""))
+            : tr("în fiecare lună"))+'</span></span>'+
+          '<span class="amt in num">+'+esc(lei(fixedAmount(f, m)))+'</span></button>';
+      }).join("");
+      h += inc.map(function(i2){
+        return '<button class="row" data-editinc="'+i2.id+'">'+
+          '<span class="chip" style="background:var(--surface2);color:var(--muted)">V</span>'+
+          '<span class="main"><span class="t">'+esc(i2.name)+'</span><span class="s">'+tr("venit variabil ·")+' '+esc(mLabel(m))+'</span></span>'+
+          '<span class="amt in num">+'+esc(lei(i2.amount))+'</span></button>';
+      }).join("");
+    }
+    h += '</div>';
+    return h;
+  }
+
+  h += '<div class="sect"><h2>'+tr("Cheltuieli ·")+' '+esc(mLabel(m))+'</h2>'+plus+'</div>';
+  if(!nEx){
+    h += '<div class="stack" style="margin-top:8px"><div class="empty">'+tr("Nicio cheltuială în")+' '+esc(mLabel(m))+'.</div></div>';
+    return h;
+  }
+  var ord = exps.slice().sort(function(a,b){ return a.date<b.date?1:a.date>b.date?-1:(b.ts||0)-(a.ts||0); });
   var curDay = "";
-  exps.forEach(function(e){
+  ord.forEach(function(e){
     if(e.date !== curDay){ curDay = e.date; h += '<div class="daysep">'+esc(dayLabel(e.date))+'</div>'; }
     h += expRow(e);
   });
@@ -2445,7 +2487,7 @@ function deleteCat(id){
 
 /* ============ events ============ */
 document.addEventListener("click", function(ev){
-  var t = ev.target.closest ? ev.target.closest("[data-savemove],[data-savemoveedit],[data-saveplan],[data-editbud],[data-delbud],[data-reactivate],[data-doreactivate],[data-openitem],[data-delscopeopen],[data-delscope],[data-delhist],[data-install],[data-nav],[data-sheet],[data-editexp],[data-editprov],[data-editfix],[data-editinc],[data-editcat],[data-save],[data-del],[data-toggle],[data-copybud],[data-payprov],[data-closeprov],[data-reopenprov],[data-copytxt],[data-restore],[data-forget],[data-reset]") : null;
+  var t = ev.target.closest ? ev.target.closest("[data-savemove],[data-savemoveedit],[data-saveplan],[data-editbud],[data-delbud],[data-mv],[data-reactivate],[data-doreactivate],[data-openitem],[data-delscopeopen],[data-delscope],[data-delhist],[data-install],[data-nav],[data-sheet],[data-editexp],[data-editprov],[data-editfix],[data-editinc],[data-editcat],[data-save],[data-del],[data-toggle],[data-copybud],[data-payprov],[data-closeprov],[data-reopenprov],[data-copytxt],[data-restore],[data-forget],[data-reset]") : null;
   if(!t) return;
   var a = function(k){ return t.getAttribute(k); };
 
@@ -2469,6 +2511,7 @@ document.addEventListener("click", function(ev){
   if(a("data-editfix")){ sheetIncome("fix", a("data-editfix")); return; }
   if(a("data-editinc")){ sheetIncome("var", a("data-editinc")); return; }
   if(a("data-editcat")){ sheetCat(a("data-editcat")); return; }
+  if(a("data-mv")){ ui.mv = a("data-mv"); render(); return; }
   if(a("data-editbud")){ sheetBudgetCat(a("data-editbud")); return; }
   if(a("data-delbud")){ var db = a("data-delbud").split("|"); deleteBudget(db[0], db[1]); return; }
 
