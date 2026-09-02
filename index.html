@@ -144,7 +144,7 @@ button{cursor:pointer;border:none;background:none}
 .pill.mut{background:var(--surface2);color:var(--muted)}
 
 /* ---------- budget block ---------- */
-.bud{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:13px 14px}
+.bud{display:block;width:100%;text-align:left;font:inherit;color:inherit;background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:13px 14px}
 .bud + .bud{margin-top:8px}
 .bud .top{display:flex;align-items:center;gap:10px;margin-bottom:9px}
 .bud .nm{font-weight:600;flex:1}
@@ -369,9 +369,12 @@ var DICT = { en: {
   "Arhivă": "Archive",
   "Backup descărcat": "Backup downloaded",
   "Browserul nu permite salvarea locală pentru acest fișier, așa că datele se pierd când închizi pagina.": "This browser will not store data for this file, so anything you enter is lost when you close the page.",
+  "Buget salvat": "Budget saved",
   "Buget standard lunar": "Standard monthly budget",
   "Buget standard lunar (opțional)": "Standard monthly budget (optional)",
   "Buget total": "Total budget",
+  "Buget ·": "Budget ·",
+  "Buget șters": "Budget deleted",
   "Bugete": "Budgets",
   "Bugete copiate din": "Budgets copied from",
   "Bugete salvate": "Budgets saved",
@@ -434,7 +437,10 @@ var DICT = { en: {
   "Editează venitul": "Edit income",
   "Fiecare lună începe cu ce a rămas din luna dinainte. Dacă îl oprești, fiecare lună pornește de la zero.": "Each month starts with whatever was left from the one before. Turn it off and every month starts from zero.",
   "Fișier încărcat — apasă Restaurează": "File loaded — tap Restore",
+  "Fără asta, limita rămâne doar pe luna deschisă.": "Without this, the limit stays on the open month only.",
   "Fără buget": "No budget",
+  "Fără buget luna asta": "No budget this month",
+  "Fără buget în {0}": "No budget in {0}",
   "Fără categorie": "No category",
   "Fără plăți înregistrate.": "No payments recorded.",
   "Instalare": "Install",
@@ -442,6 +448,7 @@ var DICT = { en: {
   "Istoricul sumei": "Amount history",
   "Lasă gol acolo unde nu vrei limită. Bifează „standard” ca să se aplice automat și în lunile următoare.": "Leave blank where you do not want a limit. Tick \\u201estandard\\u201d to apply it to future months too.",
   "Limba: română": "Language: English",
+  "Limită lunară": "Monthly limit",
   "Lipește aici copia de siguranță. Datele actuale din acest browser vor fi înlocuite.": "Paste your backup here. The data currently in this browser will be replaced.",
   "Luna trecută nu are bugete setate": "Last month has no budgets set",
   "Mai ai": "You have",
@@ -521,6 +528,7 @@ var DICT = { en: {
   "Se adaugă automat în fiecare lună, începând cu": "Added automatically every month, starting with",
   "Se adaugă doar în": "Added only in",
   "Se aplică din luna aleasă înainte. Lunile dinainte rămân neatinse.": "It applies from the chosen month onwards. Earlier months are left untouched.",
+  "Se aplică și în lunile următoare": "Applies to the following months too",
   "Se execută automat în fiecare lună, la ziua stabilită. Îl poți opri sau sări peste o lună oricând.": "It runs automatically every month, on the day you set. You can stop it or skip a month at any time.",
   "Se oprește aici; lunile dinainte rămân neatinse": "Stops here; earlier months are left untouched",
   "Se repetă în fiecare lună. Alege de unde vrei să dispară — lunile pe care nu le atingi rămân exact cum sunt.": "This repeats every month. Choose where it should disappear from — the months you do not touch stay exactly as they are.",
@@ -574,6 +582,7 @@ var DICT = { en: {
   "cheltuială": "expense",
   "cheltuieli": "expenses",
   "cheltuieli înregistrate": "expenses recorded",
+  "cheltuit până acum {0}": "spent so far {0}",
   "de rate": "instalments",
   "depus în": "deposited in",
   "depășit cu": "over by",
@@ -631,6 +640,7 @@ var DICT = { en: {
   "venit fix ·": "fixed income ·",
   "venit variabil ·": "one-off income ·",
   "{0} cade {1}": "the {0} falls on a {1}",
+  "{0} cheltuiți în categorii fără buget — nu intră în procent.": "{0} spent in categories with no budget — not counted in the percentage.",
   "{0} nefolosiți": "{0} unused",
   "{0} în {1}": "{0} in {1}",
   "· buget": "· budget",
@@ -665,6 +675,8 @@ var DICT = { en: {
   "înregistrări. Le ștergi odată cu ea?": "records. Delete them along with it?",
   "îți mai trebuie {0}": "you still need {0}",
   "Șterge": "Delete",
+  "Șterge bugetul": "Delete the budget",
+  "Șterge bugetul definitiv": "Delete the budget for good",
   "Șterge categoria": "Delete category",
   "Șterge complet, inclusiv din trecut": "Deletes it entirely, past included",
   "Șterge provizionul": "Delete set-aside",
@@ -1342,7 +1354,7 @@ function budRow(m,c){
   var used = pctSpent + pctProv;
   var rest = b - agg.spent - agg.prov;
   var cls = used>=100 ? "danger" : used>=80 ? "warn" : "ok";
-  return '<div class="bud"><div class="top">'+
+  return '<button class="bud" data-editbud="'+c.id+'"><div class="top">'+
     '<span class="chip" style="width:26px;height:26px;border-radius:9px;font-size:11px;background:'+tint(c.color,.14)+';color:'+c.color+'">'+esc(initials(c.name))+'</span>'+
     '<span class="nm">'+esc(c.name)+'</span>'+
     '<span class="pct" style="color:var(--'+cls+')">'+Math.round(used)+'%</span></div>'+
@@ -1351,7 +1363,7 @@ function budRow(m,c){
     '<div class="legend"><span class="num">'+esc(leiShort(agg.spent+agg.prov))+' / '+esc(leiShort(b))+'</span>'+
     '<span style="color:var(--'+cls+')">'+(rest>=0 ? tr("mai ai")+" "+leiShort(rest)+" ("+Math.max(0,Math.round(100-used))+"%)" : tr("depășit cu")+" "+leiShort(-rest))+'</span></div>'+
     (agg.prov>0 ? '<div class="hint" style="margin-top:6px">include '+esc(leiShort(agg.prov))+' provizionat</div>' : '')+
-    '</div>';
+    '</button>';
 }
 
 /* ---- LIST ---- */
@@ -1393,11 +1405,14 @@ function viewList(){
 /* ---- BUDGET ---- */
 function viewBudget(){
   var m = ui.month, h = "";
-  var totB = 0, totS = 0, totP = 0;
-  S.cats.forEach(function(c){
-    var b = budgetOf(m,c.id); if(b) totB += b;
+  var totB = 0, totS = 0, totP = 0, outS = 0;
+  var inBud = {};
+  budgetedCats(m).forEach(function(c){ inBud[c.id] = true; totB += budgetOf(m,c.id); });
+  /* cheltuielile din categorii nebugetate nu au cum sa consume un buget care nu exista */
+  byCategory(m).forEach(function(a){
+    if(inBud[a.catId]){ totS += a.spent; totP += a.prov; }
+    else outS += a.spent + a.prov;
   });
-  byCategory(m).forEach(function(a){ totS += a.spent; totP += a.prov; });
   var used = totB>0 ? (totS+totP)/totB*100 : 0;
 
   h += '<div class="card stack" style="margin-top:12px">'+
@@ -1405,6 +1420,7 @@ function viewBudget(){
     '<div class="big num" style="font-size:30px;font-weight:600;letter-spacing:-.03em;margin:6px 0 2px">'+esc(lei(totB))+'</div>'+
     '<div class="sub" style="font-size:13px;color:var(--muted)">consumat '+Math.round(used)+tr("% · rămas")+' '+esc(lei(Math.max(0,totB-totS-totP)))+'</div></div>'+
     '<div class="meter"><i style="width:'+Math.min(100,totB?totS/totB*100:0)+'%;background:var(--accent)"></i><i style="width:'+Math.min(Math.max(0,100-(totB?totS/totB*100:0)), totB?totP/totB*100:0)+'%;background:'+tint("#0E8C82",.4)+'"></i></div>'+
+    (outS > 0 ? '<div class="hint" style="margin-top:2px">'+esc(tr("{0} cheltuiți în categorii fără buget — nu intră în procent.", leiShort(outS)))+'</div>' : '')+
     '<div class="grid2" style="margin-top:6px"><button class="btn ghost" data-sheet="budget">'+tr("Setează bugete")+'</button><button class="btn ghost" data-copybud="1">'+tr("Copiază luna trecută")+'</button></div>'+
     '</div>';
 
@@ -1811,7 +1827,7 @@ function sheetBudget(){
   h += S.cats.map(function(c){
     var mb = (S.budgets[m]||{})[c.id];
     var std = S.stdBudgets[c.id];
-    var val = mb!=null ? mb : (std!=null ? std : "");
+    var val = mb!=null ? (mb>0?mb:"") : (std!=null ? std : "");
     return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'+
       '<span class="chip" style="background:'+tint(c.color,.14)+';color:'+c.color+'">'+esc(initials(c.name))+'</span>'+
       '<span style="flex:1;font-weight:600;font-size:14.5px">'+esc(c.name)+'</span>'+
@@ -1824,6 +1840,57 @@ function sheetBudget(){
   Array.prototype.forEach.call(sheet.querySelectorAll("[data-std]"), function(b){
     b.addEventListener("click", function(){ b.setAttribute("aria-pressed", b.getAttribute("aria-pressed")!=="true"); });
   });
+}
+
+/* --- bugetul unei singure categorii --- */
+function sheetBudgetCat(catId){
+  var m = ui.month, c = cat(catId);
+  if(!c) return;
+  var mb = (S.budgets[m]||{})[catId];
+  var std = S.stdBudgets[catId];
+  var val = mb != null ? mb : (std != null ? std : null);
+  var agg = byCategory(m).filter(function(x){ return x.catId===catId; })[0] || {spent:0, prov:0};
+  var h = '<h3>'+esc(tr("Buget ·")+" "+c.name)+'</h3>';
+  h += '<p class="hint" style="margin:-6px 2px 14px">'+esc(mLabel(m))+' · '+
+       esc(tr("cheltuit până acum {0}", lei(agg.spent + agg.prov)))+'</p>';
+  h += moneyField(tr("Limită lunară"), "bcAmt", val && val > 0 ? val : null).replace('class="inp money"', 'class="inp money" data-focus');
+  h += '<div class="f" style="display:flex;align-items:center;justify-content:space-between;gap:12px">'+
+       '<span style="flex:1"><span style="display:block;font-weight:600;font-size:14.5px">'+tr("Se aplică și în lunile următoare")+'</span>'+
+       '<span class="hint" style="display:block;margin:2px 0 0">'+tr("Fără asta, limita rămâne doar pe luna deschisă.")+'</span></span>'+
+       '<button type="button" class="tog" id="bcStd" aria-pressed="'+(std != null)+'"><i></i></button></div>';
+  h += '<button class="btn" data-save="budcat" data-id="'+catId+'">'+tr("Salvează")+'</button>';
+  if(val != null && val > 0){
+    if(std != null){
+      h += '<button class="btn ghost" style="margin-top:8px" data-delbud="month|'+catId+'">'+esc(tr("Fără buget în {0}", mLabel(m)))+'</button>';
+      h += '<button class="btn dang" style="margin-top:8px" data-delbud="all|'+catId+'">'+tr("Șterge bugetul definitiv")+'</button>';
+    } else {
+      h += '<button class="btn dang" style="margin-top:8px" data-delbud="all|'+catId+'">'+tr("Șterge bugetul")+'</button>';
+    }
+  }
+  openSheet(h);
+  var tg = document.getElementById("bcStd");
+  tg.addEventListener("click", function(){ tg.setAttribute("aria-pressed", tg.getAttribute("aria-pressed")!=="true"); });
+}
+function saveBudgetCat(catId){
+  var m = ui.month, v = parseNum(document.getElementById("bcAmt").value);
+  var std = document.getElementById("bcStd").getAttribute("aria-pressed") === "true";
+  if(!S.budgets[m]) S.budgets[m] = {};
+  if(!(v > 0)){ delete S.budgets[m][catId]; delete S.stdBudgets[catId]; closeSheet(); commit(tr("Buget șters")); return; }
+  S.budgets[m][catId] = v;
+  if(std) S.stdBudgets[catId] = v; else delete S.stdBudgets[catId];
+  closeSheet(); commit(tr("Buget salvat"));
+}
+function deleteBudget(scope, catId){
+  var m = ui.month;
+  if(!S.budgets[m]) S.budgets[m] = {};
+  if(scope === "month"){
+    S.budgets[m][catId] = 0;                 /* 0 = fara limita luna asta, standardul ramane */
+    closeSheet(); commit(tr("Fără buget luna asta"));
+  } else {
+    delete S.budgets[m][catId];
+    delete S.stdBudgets[catId];
+    closeSheet(); commit(tr("Buget șters"));
+  }
 }
 
 /* --- category sheet --- */
@@ -2313,10 +2380,10 @@ function saveBudgets(){
     var id = inp.getAttribute("data-bud");
     var raw = inp.value.trim();
     var std = sheet.querySelector('[data-std="'+id+'"]').getAttribute("aria-pressed")==="true";
-    if(raw===""){ delete S.budgets[m][id]; if(!std) delete S.stdBudgets[id]; return; }
+    if(raw===""){ delete S.budgets[m][id]; delete S.stdBudgets[id]; return; }   /* gol = fara limita, oriunde */
     var v = parseNum(raw);
     S.budgets[m][id] = v;
-    if(std) S.stdBudgets[id] = v; else delete S.stdBudgets[id];
+    if(std && v > 0) S.stdBudgets[id] = v; else delete S.stdBudgets[id];
   });
   closeSheet(); commit(tr("Bugete salvate"));
 }
@@ -2352,7 +2419,7 @@ function deleteCat(id){
 
 /* ============ events ============ */
 document.addEventListener("click", function(ev){
-  var t = ev.target.closest ? ev.target.closest("[data-savemove],[data-savemoveedit],[data-saveplan],[data-reactivate],[data-doreactivate],[data-openitem],[data-delscopeopen],[data-delscope],[data-delhist],[data-install],[data-nav],[data-sheet],[data-editexp],[data-editprov],[data-editfix],[data-editinc],[data-editcat],[data-save],[data-del],[data-toggle],[data-copybud],[data-payprov],[data-closeprov],[data-reopenprov],[data-copytxt],[data-restore],[data-forget],[data-reset]") : null;
+  var t = ev.target.closest ? ev.target.closest("[data-savemove],[data-savemoveedit],[data-saveplan],[data-editbud],[data-delbud],[data-reactivate],[data-doreactivate],[data-openitem],[data-delscopeopen],[data-delscope],[data-delhist],[data-install],[data-nav],[data-sheet],[data-editexp],[data-editprov],[data-editfix],[data-editinc],[data-editcat],[data-save],[data-del],[data-toggle],[data-copybud],[data-payprov],[data-closeprov],[data-reopenprov],[data-copytxt],[data-restore],[data-forget],[data-reset]") : null;
   if(!t) return;
   var a = function(k){ return t.getAttribute(k); };
 
@@ -2376,6 +2443,8 @@ document.addEventListener("click", function(ev){
   if(a("data-editfix")){ sheetIncome("fix", a("data-editfix")); return; }
   if(a("data-editinc")){ sheetIncome("var", a("data-editinc")); return; }
   if(a("data-editcat")){ sheetCat(a("data-editcat")); return; }
+  if(a("data-editbud")){ sheetBudgetCat(a("data-editbud")); return; }
+  if(a("data-delbud")){ var db = a("data-delbud").split("|"); deleteBudget(db[0], db[1]); return; }
 
   if(a("data-save")){
     var k = a("data-save");
@@ -2383,6 +2452,7 @@ document.addEventListener("click", function(ev){
     else if(k==="inc") saveIncome(a("data-id"));
     else if(k==="prov") saveProvision(a("data-id"));
     else if(k==="budget") saveBudgets();
+    else if(k==="budcat") saveBudgetCat(a("data-id"));
     else if(k==="cat") saveCat(a("data-id"));
     else if(k==="svmove") saveSavingsMove(a("data-id"));
     else if(k==="svplan") saveSavingsPlan(a("data-id"));
