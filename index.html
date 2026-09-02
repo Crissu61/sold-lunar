@@ -121,6 +121,7 @@ button{cursor:pointer;border:none;background:none}
 .row .t{display:block;font-weight:600;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .row .s{display:block;font-size:12.5px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .row .amt,.row .pill{white-space:nowrap}
+.row .s.s2{white-space:normal;line-height:1.35}
 .row .amt{font-weight:600;font-size:15px;flex:none}
 .row .amt.in{color:var(--ok)}
 .row .mini{display:block;height:3px;border-radius:99px;background:var(--surface2);margin-top:7px;overflow:hidden}
@@ -358,6 +359,7 @@ var DICT = { en: {
   ", zi lucrătoare — rămâne pe": ", a working day — it stays on the",
   ". Schimb-o dacă nu e bine — rețin alegerea ta.": ". Change it if it is wrong — I will remember your choice.",
   ": venituri și provizioane oprite, sărite peste o lună sau încheiate. Nu apar în ecranele de lucru, dar le poți reactiva oricând.": ": income and set-asides that were stopped, skipped for a month or finished. They stay out of the working screens, but you can bring them back any time.",
+  "Acoperit exact": "Covered exactly",
   "Adaug-o pe ecranul principal ca să pornească fără bara browserului și să meargă și fără internet.": "Add it to your home screen so it opens without the browser bar and works offline.",
   "Adaugă categoria": "Add category",
   "Adaugă cheltuiala": "Add expense",
@@ -412,6 +414,7 @@ var DICT = { en: {
   "Depunere": "Deposit",
   "Depunere înregistrată": "Deposit recorded",
   "Depus în economii": "Deposited to savings",
+  "Depășit cu": "Over by",
   "Descarcă fișierul de backup": "Download backup file",
   "Descriere": "Description",
   "Din economii": "Out of savings",
@@ -473,6 +476,7 @@ var DICT = { en: {
   "Provizion închis": "Set-aside closed",
   "Provizion șters": "Set-aside deleted",
   "Provizionat": "Set aside",
+  "Provizionat {0} · achitat {1}": "Set aside {0} · paid {1}",
   "Provizionul dispare din sold, inclusiv diferența de": "The set-aside leaves your balance entirely, including the remaining",
   "Provizionul rămâne deschis, dar suma lui e deja acoperită.": "The set-aside stays open, but its amount is already covered.",
   "Provizionul se închide — nu mai rămâne nimic de plătit din el.": "The set-aside closes — nothing left to pay from it.",
@@ -559,6 +563,7 @@ var DICT = { en: {
   "Ziua lunii": "Day of month",
   "achitat": "paid",
   "achitat {0} din {1}": "{0} of {1} paid",
+  "acoperit": "covered",
   "azi": "today",
   "buget personal": "personal budget",
   "buget standard": "standard budget",
@@ -568,6 +573,7 @@ var DICT = { en: {
   "de rate": "instalments",
   "depus în": "deposited in",
   "depășit cu": "over by",
+  "depășit cu {0}": "over by {0}",
   "din economii": "out of savings",
   "editează": "edit",
   "element inactiv în": "item inactive in",
@@ -618,6 +624,7 @@ var DICT = { en: {
   "venit fix ·": "fixed income ·",
   "venit variabil ·": "one-off income ·",
   "{0} cade {1}": "the {0} falls on a {1}",
+  "{0} nefolosiți": "{0} unused",
   "{0} în {1}": "{0} in {1}",
   "· buget": "· budget",
   "· deocamdată fără report": "· carry-over not counted yet",
@@ -825,6 +832,8 @@ function provRemaining(p,m){
   if(provRec(p,m).closed) return 0;
   return Math.max(0, Math.round((p.amount - provPaid(p,m))*100)/100);
 }
+/* >0 = ai platit mai mult decat ai provizionat, <0 = a ramas neutilizat */
+function provDelta(p,m){ return Math.round((provPaid(p,m) - p.amount)*100)/100; }
 function provState(p,m){
   if(provRec(p,m).closed) return "closed";
   return provPaid(p,m) > 0 ? "partial" : "open";
@@ -1160,16 +1169,29 @@ function viewHome(){
       var col = c ? c.color : "#B5721A";
       var term = x.p.recurring && x.p.term;
       var kind = term ? (tr("rata")+" "+x.idx+"/"+x.p.term) : (x.p.recurring ? tr("lunar, nelimitat") : tr("o singură dată"));
-      var sub = x.state === "partial"
-        ? (tr("achitat {0} din {1}", NF0.format(Math.round(x.paid)), leiShort(x.p.amount)) + (x.p.day ? (" "+tr("· pe")+" " + x.p.day) : ""))
-        : (kind + (x.p.day ? (" "+tr("· scadent pe")+" " + x.p.day) : "") + (c ? " · " + c.name : ""));
+      var delta = provDelta(x.p, m);
+      var covered = x.remaining <= 0;                 /* acoperit integral, dar neinchis */
+      var diffTxt = "", diffCol = "";
+      if(x.paid > 0 && delta > 0){ diffTxt = tr("depășit cu {0}", leiShort(delta)); diffCol = "var(--danger)"; }
+      else if(x.paid > 0 && delta < 0 && x.state === "closed"){ diffTxt = tr("{0} nefolosiți", leiShort(-delta)); diffCol = "var(--muted)"; }
+
+      var sub;
+      if(x.paid > 0){
+        sub = tr("achitat {0} din {1}", NF0.format(Math.round(x.paid)), leiShort(x.p.amount));
+        if(diffTxt) sub += " · ";
+        else if(x.p.day) sub += " "+tr("· pe")+" " + x.p.day;
+      } else {
+        sub = kind + (x.p.day ? (" "+tr("· scadent pe")+" " + x.p.day) : "") + (c ? " · " + c.name : "");
+      }
       var right = x.state === "closed"
         ? '<span class="pill ok">'+tr("închis")+'</span>'
-        : '<span class="amt num">−'+esc(lei(x.remaining))+'</span>';
+        : (covered && x.paid > 0
+            ? '<span class="pill mut">'+tr("acoperit")+'</span>'
+            : '<span class="amt num">−'+esc(lei(x.remaining))+'</span>');
       return '<button class="row" data-editprov="'+x.p.id+'">'+
         '<span class="chip" style="background:'+tint(col,.14)+';color:'+col+'">'+esc(c?initials(c.name):"P")+'</span>'+
         '<span class="main"><span class="t">'+esc(x.p.name)+(x.state==="partial"?' <span class="pill warn" style="margin-left:4px">'+tr("parțial")+'</span>':'')+'</span>'+
-        '<span class="s">'+esc(sub)+'</span>'+
+        '<span class="s'+(diffTxt?" s2":"")+'">'+esc(sub)+(diffTxt ? '<b style="color:'+diffCol+';font-weight:600">'+esc(diffTxt)+'</b>' : '')+'</span>'+
         (term ? '<span class="mini"><i style="width:'+Math.min(100, x.idx/x.p.term*100)+'%;background:'+col+'"></i></span>'
               : (x.state==="partial" ? '<span class="mini"><i style="width:'+Math.min(100, x.paid/x.p.amount*100)+'%;background:'+col+'"></i></span>' : ''))+
         '</span>'+
@@ -1684,9 +1706,16 @@ function sheetProvision(id){
         '<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(x.note || cat(x.catId).name)+'</span>'+
         '<span class="num" style="font-weight:600;flex:none">'+esc(lei(x.amount))+'</span></div>';
     }).join("") || '<p class="hint" style="margin:6px 0 0">'+tr("Fără plăți înregistrate.")+'</p>';
+    var dlt = provDelta(p, ui.month);
+    var fLabel, fVal, fCol;
+    if(dlt > 0){ fLabel = tr("Depășit cu"); fVal = lei(dlt); fCol = "var(--danger)"; }
+    else if(dlt === 0){ fLabel = tr("Acoperit exact"); fVal = ""; fCol = "var(--ok)"; }
+    else if(settled){ fLabel = tr("Rămas neutilizat"); fVal = lei(-dlt); fCol = "var(--muted)"; }
+    else { fLabel = tr("Rest de acoperit"); fVal = lei(remaining); fCol = "var(--warn)"; }
     h += '<div style="display:flex;justify-content:space-between;gap:10px;padding-top:9px;margin-top:4px;border-top:1px solid var(--line);font-weight:700;font-size:13.5px">'+
-      '<span>'+(settled ? tr("Rămas neutilizat") : tr("Rest de acoperit"))+'</span>'+
-      '<span class="num" style="color:'+(settled?"var(--muted)":"var(--warn)")+'">'+esc(lei(settled ? Math.max(0, p.amount - paid) : remaining))+'</span></div>';
+      '<span>'+esc(fLabel)+'</span>'+
+      '<span class="num" style="color:'+fCol+'">'+esc(fVal)+'</span></div>';
+    h += '<div class="hint" style="margin:8px 0 0">'+esc(tr("Provizionat {0} · achitat {1}", lei(p.amount), lei(paid)))+'</div>';
     h += '</div>';
   }
   h += '<button class="btn" data-save="prov" data-id="'+(p?p.id:"")+'">'+(p?tr("Salvează"):tr("Adaugă provizionul"))+'</button>';
@@ -2471,7 +2500,7 @@ window.__app = {
   ui:ui, balance:balance, totalIncome:totalIncome, totalExpense:totalExpense,
   totalOpenProv:totalOpenProv, byCategory:byCategory, budgetOf:budgetOf,
   provisionsFor:provisionsFor, provLastMonth:provLastMonth, provIdx:provIdx, provActive:provActive,
-  provRemaining:provRemaining, provPaid:provPaid, provState:provState,
+  provRemaining:provRemaining, provDelta:provDelta, provPaid:provPaid, provState:provState,
   parseNum:parseNum, tr:tr, applyLang:applyLang,
   prevWorkday:prevWorkday, salaryDate:salaryDate, isWeekendDay:isWeekendDay,
   savingsBalance:savingsBalance, savingsNet:savingsNet, savingsMovesFor:savingsMovesFor, materializeSavings:materializeSavings,
