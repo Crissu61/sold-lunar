@@ -388,9 +388,11 @@ var DICT = { en: {
   "Categorii": "Categories",
   "Ce nu se aplică în": "What does not apply in",
   "Cheltuială actualizată": "Expense updated",
+  "Cheltuială actualizată · {0} s-a redeschis": "Expense updated · {0} reopened",
   "Cheltuială nouă": "New expense",
   "Cheltuială înregistrată": "Expense recorded",
   "Cheltuială ștearsă": "Expense deleted",
+  "Cheltuială ștearsă · {0} s-a redeschis": "Expense deleted · {0} reopened",
   "Cheltuieli": "Expenses",
   "Cheltuieli ·": "Expenses ·",
   "Cheltuieli, ultimele 6 luni": "Expenses, last 6 months",
@@ -2282,6 +2284,8 @@ function saveExpense(id){
   if(id){
     var e = S.expenses.filter(function(x){ return x.id===id; })[0];
     e.amount = amt; e.catId = catId; e.date = date; e.note = note;
+    var back = reconcileProv(id);
+    if(back.length){ closeSheet(); commit(tr("Cheltuială actualizată · {0} s-a redeschis", back[0])); return; }
   } else {
     var ne = {id:uid(), amount:amt, catId:catId, date:date, note:note, ts:Date.now()};
     S.expenses.push(ne);
@@ -2300,20 +2304,42 @@ function saveExpense(id){
   }
   closeSheet(); commit(id ? tr("Cheltuială actualizată") : tr("Cheltuială înregistrată"));
 }
-function deleteExpense(id){
-  S.expenses = S.expenses.filter(function(x){ return x.id!==id; });
+/* o cheltuiala legata de un provizion s-a sters sau s-a schimbat:
+   provizionul trebuie sa arate din nou realitatea, nu situatia de la inchidere */
+function reconcileProv(expId){
+  var reopened = [];
   S.provisions.forEach(function(p){
     if(!p.pay) return;
-    for(var m in p.pay){
+    Object.keys(p.pay).forEach(function(m){
       var rec = p.pay[m];
-      var i = (rec.ids || []).indexOf(id);
-      if(i !== -1){
-        rec.ids.splice(i,1);
-        if(!rec.ids.length) rec.closed = false;
+      if((rec.ids || []).indexOf(expId) === -1) return;
+      /* id-uri ramase fara cheltuiala in spate */
+      rec.ids = rec.ids.filter(function(x){
+        return S.expenses.some(function(e){ return e.id === x; });
+      });
+      /* cheltuiala mutata in alta luna isi ia plata cu ea */
+      var e = S.expenses.filter(function(x){ return x.id === expId; })[0];
+      if(e && e.date.slice(0,7) !== m && rec.ids.indexOf(expId) !== -1){
+        rec.ids = rec.ids.filter(function(x){ return x !== expId; });
+        var nm = e.date.slice(0,7), r2 = p.pay[nm] || { ids:[], closed:false };
+        r2.ids = (r2.ids || []).concat([expId]);
+        p.pay[nm] = r2;
       }
-    }
+      /* inchis, dar banii nu mai acopera provizionul -> se redeschide */
+      if(rec.closed && provPaid(p, m) < p.amount){
+        rec.closed = false;
+        if(provActive(p, m)) reopened.push(p.name);
+      }
+      p.pay[m] = rec;
+    });
   });
-  closeSheet(); commit(tr("Cheltuială ștearsă"));
+  return reopened;
+}
+function deleteExpense(id){
+  S.expenses = S.expenses.filter(function(x){ return x.id!==id; });
+  var back = reconcileProv(id);
+  closeSheet();
+  commit(back.length ? tr("Cheltuială ștearsă · {0} s-a redeschis", back[0]) : tr("Cheltuială ștearsă"));
 }
 function saveIncome(id){
   var name = document.getElementById("iName").value.trim() || tr("Venit");
@@ -2651,6 +2677,7 @@ window.__app = {
   totalOpenProv:totalOpenProv, byCategory:byCategory, budgetOf:budgetOf,
   provisionsFor:provisionsFor, provLastMonth:provLastMonth, provIdx:provIdx, provActive:provActive,
   provRemaining:provRemaining, provDelta:provDelta, provPaid:provPaid, provState:provState,
+  reconcileProv:reconcileProv,
   parseNum:parseNum, tr:tr, applyLang:applyLang,
   prevWorkday:prevWorkday, salaryDate:salaryDate, isWeekendDay:isWeekendDay,
   savingsBalance:savingsBalance, savingsNet:savingsNet, plannedSavings:plannedSavings,
