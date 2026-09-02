@@ -502,8 +502,12 @@ function firstMonth(){
   all.sort();
   return all[0];
 }
+function curMonth(){ return mk(new Date()); }
+/* reportul se stie doar daca toate lunile dinaintea lui m s-au incheiat */
+function carryPending(m){ return S.carry && m > curMonth(); }
 function carryInto(m){
   if(!S.carry) return 0;
+  if(m > curMonth()) return 0;      /* luna dinainte inca nu s-a incheiat */
   var start = firstMonth();
   if(m <= start) return 0;
   var bal = 0, cur = start, guard = 0;
@@ -663,9 +667,19 @@ function viewHome(){
   h += '<div class="card balance stack" style="margin-top:12px">'+
     '<div><div class="lbl">Sold disponibil</div>'+
     '<div class="big num'+(bal<0?" neg":"")+'">'+esc(lei(bal))+'</div>'+
-    '<div class="sub">'+esc(mLabel(m))+(prov>0?' · după provizioane':'')+'</div></div>'+
+    '<div class="sub">'+esc(mLabel(m))+
+      (carryPending(m) ? ' · deocamdată fără report' : (prov>0 ? ' · după provizioane' : ''))+'</div></div>'+
+    (carryPending(m)
+      ? '<p class="hint" style="margin:10px 0 0">Reportul din '+esc(mLabel(shiftM(m,-1)))+
+        ' se adaugă automat pe 1 '+esc(MONTHS[+m.split("-")[1]-1].toLowerCase())+', când luna se încheie. Până atunci vezi doar mișcările lunii.</p>'
+      : '')+
     '<div class="breakdown">'+
-      ((S.carry && m > firstMonth()) ? brow("#5A6B7B","Report din " + mLabel(shiftM(m,-1)).split(" ")[0], carry, "carry") : "")+
+      ((S.carry && m > firstMonth())
+        ? (carryPending(m)
+            ? '<div class="brow"><span class="k"><i style="background:#5A6B7B"></i>Report din '+esc(mLabel(shiftM(m,-1)).split(" ")[0])+'</span>'+
+              '<span class="pill mut" title="se stabilește la închiderea lunii">TBD</span></div>'
+            : brow("#5A6B7B","Report din " + mLabel(shiftM(m,-1)).split(" ")[0], carry, "carry"))
+        : "")+
       brow("var(--ok)","Venituri", inc, "inc")+
       brow("var(--danger)","Cheltuieli", -exp, "exp")+
       brow("var(--warn)","Provizioane neachitate", -prov, "prov")+
@@ -864,7 +878,7 @@ function viewReport(){
       '<div class="k"><span>Venituri</span><b style="color:var(--ok)">'+esc(lei(inc))+'</b></div>'+
       '<div class="k"><span>Cheltuieli</span><b>'+esc(lei(totS))+'</b></div>'+
       '<div class="k"><span>Provizionat</span><b style="color:var(--warn)">'+esc(lei(prov))+'</b></div>'+
-      '<div class="k"><span>Rămas</span><b style="color:'+(balance(m)<0?"var(--danger)":"var(--accent-ink)")+'">'+esc(lei(balance(m)))+'</b></div>'+
+      '<div class="k"><span>'+(carryPending(m)?"Rămas (fără report)":"Rămas")+'</span><b style="color:'+(balance(m)<0?"var(--danger)":"var(--accent-ink)")+'">'+esc(lei(balance(m)))+'</b></div>'+
     '</div>'+
     '<div><div class="lbl" style="font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin-top:6px">Cheltuieli, ultimele 6 luni</div>'+
     '<div class="bars">'+ months.map(function(x,i){
@@ -1724,6 +1738,17 @@ document.getElementById("themeBtn").addEventListener("click", function(){
   toast(S.theme==="auto" ? "Temă: automat" : S.theme==="dark" ? "Temă: întunecat" : "Temă: luminos");
 });
 applyTheme();
+
+/* daca aplicatia ramane deschisa peste miezul noptii, reimprospatez la revenire */
+var lastSeenDay = todayISO();
+function refreshIfNewDay(){
+  var t = todayISO();
+  if(t !== lastSeenDay){ lastSeenDay = t; render(); }
+}
+document.addEventListener("visibilitychange", function(){ if(!document.hidden) refreshIfNewDay(); });
+window.addEventListener("focus", refreshIfNewDay);
+setInterval(refreshIfNewDay, 60000);
+
 render();
 
 /* expose for self-test */
@@ -1733,7 +1758,7 @@ window.__app = {
   totalOpenProv:totalOpenProv, byCategory:byCategory, budgetOf:budgetOf,
   provisionsFor:provisionsFor, provLastMonth:provLastMonth, provIdx:provIdx, provActive:provActive,
   provRemaining:provRemaining, provPaid:provPaid, provState:provState,
-  fixedLive:fixedLive, archivedItems:archivedItems, reactivateFrom:reactivateFrom, isOff:isOff, addOff:addOff, applyDeleteScope:applyDeleteScope, fixedAmount:fixedAmount, fixedStart:fixedStart, fixedChanges:fixedChanges, fixedFor:fixedFor,
+  carryPending:carryPending, curMonth:curMonth, carryInto:carryInto, fixedLive:fixedLive, archivedItems:archivedItems, reactivateFrom:reactivateFrom, isOff:isOff, addOff:addOff, applyDeleteScope:applyDeleteScope, fixedAmount:fixedAmount, fixedStart:fixedStart, fixedChanges:fixedChanges, fixedFor:fixedFor,
   nextSalary:nextSalary, provisionsDueBy:provisionsDueBy, dateForDay:dateForDay,
   guessCategory:guessCategory, learnFrom:learnFrom, normTxt:normTxt,
   uid:uid, seed:seed, render:render, save:save
