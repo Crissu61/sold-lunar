@@ -72,6 +72,8 @@ button{cursor:pointer;border:none;background:none}
 }
 .brandrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:2px 2px 10px}
 .brand{display:flex;align-items:center;gap:9px;font-weight:800;letter-spacing:-.02em}
+.backbtn{display:flex;align-items:center;gap:4px;margin-left:-6px;padding:6px 10px 6px 6px;border-radius:11px;font-size:15px;font-weight:700;letter-spacing:-.01em;color:var(--accent-ink);background:var(--accent-soft)}
+.backbtn svg{width:19px;height:19px;flex:0 0 auto}
 .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
 .brand small{display:block;font-weight:500;font-size:11px;color:var(--faint);letter-spacing:.06em;text-transform:uppercase}
 .iconbtn{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;color:var(--muted);background:var(--surface);border:1px solid var(--line)}
@@ -86,13 +88,13 @@ button{cursor:pointer;border:none;background:none}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow)}
 .stack{display:flex;flex-direction:column;gap:12px;margin-top:12px}
 .sect{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:22px 2px 2px}
-.mvpick{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
-.mvpick button{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:13px 14px;text-align:left;font:inherit;color:inherit}
-.mvpick button[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
-.mvpick .lb{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
-.mvpick .lb i{width:7px;height:7px;border-radius:50%;flex:0 0 auto}
-.mvpick .vl{display:block;font-family:var(--fm);font-size:18px;font-weight:600;letter-spacing:-.02em;margin-top:5px}
-.mvpick .cn{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+.mvpick{display:flex;flex-direction:column;gap:12px;margin-top:14px}
+.mvpick button{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:17px;padding:18px 44px 18px 18px;text-align:left;font:inherit;color:inherit;box-shadow:var(--shadow)}
+.mvpick .lb{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint)}
+.mvpick .lb i{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+.mvpick .vl{display:block;font-family:var(--fm);font-size:27px;font-weight:600;letter-spacing:-.03em;margin-top:7px}
+.mvpick .cn{display:block;font-size:12.5px;color:var(--muted);margin-top:3px}
+.mvpick .go{position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:26px;line-height:1;color:var(--faint)}
 .sect .addbig{width:38px;height:38px;border-radius:12px;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;flex:0 0 auto;align-self:center;box-shadow:0 4px 12px -5px rgba(14,140,130,.6)}
 .sect .addbig svg{width:21px;height:21px}
 .sect:has(.addbig){align-items:center}
@@ -232,7 +234,11 @@ select.inp{appearance:none;background-image:linear-gradient(45deg,transparent 50
 <div class="app">
   <div class="topbar">
     <div class="brandrow">
-      <div class="brand"><span class="dot"></span><span>Sold Lunar<small id="brandSub">buget personal</small></span></div>
+      <button class="backbtn" id="backBtn" hidden aria-label="Înapoi">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        <span id="backTxt"></span>
+      </button>
+      <div class="brand" id="brandBox"><span class="dot"></span><span>Sold Lunar<small id="brandSub">buget personal</small></span></div>
       <div style="display:flex;gap:8px;flex:none">
         <button class="iconbtn" id="langBtn" style="font-size:12px;font-weight:800;letter-spacing:.04em">RO</button>
         <button class="iconbtn" id="themeBtn">
@@ -349,7 +355,7 @@ function save(){
 }
 
 var S = load();
-var ui = { month: mk(new Date()), view: "home", mv: "exp" };
+var ui = { month: mk(new Date()), view: "home", mv: null };
 var deferredInstall = null;
 
 /* ============ helpers ============ */
@@ -680,6 +686,7 @@ var DICT = { en: {
   "În economii": "In savings",
   "În {0} cade {1}, zi lucrătoare — rămâne pe {2}.": "In {0} it falls on a {1}, a working day — it stays on the {2}.",
   "În {0}, {1} cade {2} — aplicația folosește <b>{3}, {4}</b>, ultima zi lucrătoare dinainte.": "In {0}, the {1} falls on a {2} — the app uses <b>{3} the {4}</b>, the last working day before it.",
+  "Înapoi": "Back",
   "Începe din": "Starts in",
   "Închide provizionul": "Close the set-aside",
   "Închide-l acum (renunț la restul de": "Close it now (give up the remaining",
@@ -1209,6 +1216,11 @@ function render(){
   if(bs) bs.textContent = tr("buget personal");
   document.getElementById("mLabel").innerHTML = esc(mLabel(ui.month).split(" ")[0]) + "<span>" + esc(ui.month.split("-")[0]) + "</span>";
   renderNav();
+  var bb = document.getElementById("backBtn"), bx = document.getElementById("brandBox");
+  var drill = ui.view === "list" && ui.mv;
+  bb.hidden = !drill; bx.hidden = !!drill;
+  if(drill) document.getElementById("backTxt").textContent = tr("Mișcări");
+  bb.setAttribute("aria-label", tr("Înapoi"));
   if(ui.view==="home") view.innerHTML = viewHome();
   else if(ui.view==="savings") view.innerHTML = viewSavings();
   else if(ui.view==="list") view.innerHTML = viewList();
@@ -1400,20 +1412,24 @@ function viewList(){
   var m = ui.month;
   var inc = incomesFor(m), fx = fixedFor(m), exps = expensesFor(m);
   var nIn = fx.length + inc.length, nEx = exps.length;
-  var tab = ui.mv === "inc" ? "inc" : "exp";
+  var tab = ui.mv;                       /* null = ecranul cu cele doua butoane */
   var h = "";
 
-  /* alegerea: venituri sau cheltuieli */
-  h += '<div class="mvpick">'+
-    '<button data-mv="inc" aria-pressed="'+(tab==="inc")+'">'+
-      '<span class="lb"><i style="background:var(--ok)"></i>'+tr("Venituri")+'</span>'+
-      '<span class="vl" style="color:var(--ok)">'+esc(lei(totalIncome(m)))+'</span>'+
-      '<span class="cn">'+nIn+' '+tr(nIn===1?"intrare":"intrări")+'</span></button>'+
-    '<button data-mv="exp" aria-pressed="'+(tab==="exp")+'">'+
-      '<span class="lb"><i style="background:var(--danger)"></i>'+tr("Cheltuieli")+'</span>'+
-      '<span class="vl">'+esc(lei(totalExpense(m)))+'</span>'+
-      '<span class="cn">'+nEx+' '+tr(nEx===1?"ieșire":"ieșiri")+'</span></button>'+
-    '</div>';
+  /* ecranul de pornire: doua butoane mari cu totalurile lunii */
+  if(!tab){
+    return '<div class="mvpick">'+
+      '<button data-mv="inc">'+
+        '<span class="lb"><i style="background:var(--ok)"></i>'+tr("Venituri")+'</span>'+
+        '<span class="vl" style="color:var(--ok)">'+esc(lei(totalIncome(m)))+'</span>'+
+        '<span class="cn">'+nIn+' '+tr(nIn===1?"intrare":"intrări")+'</span>'+
+        '<span class="go" aria-hidden="true">›</span></button>'+
+      '<button data-mv="exp">'+
+        '<span class="lb"><i style="background:var(--danger)"></i>'+tr("Cheltuieli")+'</span>'+
+        '<span class="vl">'+esc(lei(totalExpense(m)))+'</span>'+
+        '<span class="cn">'+nEx+' '+tr(nEx===1?"ieșire":"ieșiri")+'</span>'+
+        '<span class="go" aria-hidden="true">›</span></button>'+
+      '</div>';
+  }
 
   var plus = '<button class="addbig" data-sheet="'+(tab==="inc"?"inc":"exp")+'" aria-label="'+
     (tab==="inc"?tr("Adaugă venit"):tr("Adaugă cheltuială"))+'">'+
@@ -2516,7 +2532,7 @@ document.addEventListener("click", function(ev){
   if(!t) return;
   var a = function(k){ return t.getAttribute(k); };
 
-  if(a("data-nav")){ ui.view = a("data-nav"); render(); return; }
+  if(a("data-nav")){ ui.view = a("data-nav"); ui.mv = null; render(); return; }   /* tabul te duce mereu la ecranul lui de pornire */
   if(a("data-sheet")){
     var s = a("data-sheet");
     if(s==="exp") sheetExpense(null);
@@ -2537,6 +2553,7 @@ document.addEventListener("click", function(ev){
   if(a("data-editinc")){ sheetIncome("var", a("data-editinc")); return; }
   if(a("data-editcat")){ sheetCat(a("data-editcat")); return; }
   if(a("data-mv")){ ui.mv = a("data-mv"); render(); return; }
+  if(a("data-back")){ ui.mv = null; render(); return; }
   if(a("data-editbud")){ sheetBudgetCat(a("data-editbud")); return; }
   if(a("data-delbud")){ var db = a("data-delbud").split("|"); deleteBudget(db[0], db[1]); return; }
 
@@ -2696,9 +2713,14 @@ window.addEventListener("beforeinstallprompt", function(e){
 });
 window.addEventListener("appinstalled", function(){ deferredInstall = null; if(ui.view === "settings") render(); });
 
+document.getElementById("backBtn").addEventListener("click", function(){ ui.mv = null; render(); });
 document.getElementById("prevM").addEventListener("click", function(){ ui.month = shiftM(ui.month,-1); render(); });
 document.getElementById("nextM").addEventListener("click", function(){ ui.month = shiftM(ui.month,1); render(); });
-document.addEventListener("keydown", function(e){ if(e.key==="Escape") closeSheet(); });
+document.addEventListener("keydown", function(e){
+  if(e.key !== "Escape") return;
+  if(sheet.classList.contains("on")){ closeSheet(); return; }
+  if(ui.view === "list" && ui.mv){ ui.mv = null; render(); }
+});
 
 /* theme */
 function applyTheme(){

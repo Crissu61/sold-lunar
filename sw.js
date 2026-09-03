@@ -1,5 +1,5 @@
 /* Sold Lunar - service worker */
-var V = "sold-lunar-v11";
+var V = "sold-lunar-v12";
 var ASSETS = ["./", "./index.html", "./manifest.webmanifest",
               "./icon-192.png", "./icon-512.png", "./icon-512-maskable.png", "./apple-touch-icon.png"];
 
