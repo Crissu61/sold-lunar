@@ -455,6 +455,8 @@ var DICT = { en: {
   "Din total rate": "Out of",
   "Direcție": "Direction",
   "Doar din": "Only from",
+  "Doar luna asta se schimbă. Standardul de {0} rămâne pentru celelalte luni.": "Only this month changes. The {0} standard stays for the other months.",
+  "Doar în {0}": "Only in {0}",
   "După această plată": "After this payment",
   "Dă un nume categoriei": "Give the category a name",
   "Economii": "Savings",
@@ -478,6 +480,7 @@ var DICT = { en: {
   "Istoricul sumei": "Amount history",
   "Lasă gol acolo unde nu vrei limită. Bifează „standard” ca să se aplice automat și în lunile următoare.": "Leave blank where you do not want a limit. Tick \\u201estandard\\u201d to apply it to future months too.",
   "Limba: română": "Language: English",
+  "Limita rămâne doar pe luna deschisă.": "The limit stays on the open month only.",
   "Limită lunară": "Monthly limit",
   "Lipește aici copia de siguranță. Datele actuale din acest browser vor fi înlocuite.": "Paste your backup here. The data currently in this browser will be replaced.",
   "Luna trecută nu are bugete setate": "Last month has no budgets set",
@@ -560,6 +563,7 @@ var DICT = { en: {
   "Se adaugă automat în fiecare lună, începând cu": "Added automatically every month, starting with",
   "Se adaugă doar în": "Added only in",
   "Se aplică din luna aleasă înainte. Lunile dinainte rămân neatinse.": "It applies from the chosen month onwards. Earlier months are left untouched.",
+  "Se aplică din {0} încolo. Lunile dinainte rămân cum sunt.": "Applies from {0} on. Earlier months stay as they are.",
   "Se aplică și în lunile următoare": "Applies to the following months too",
   "Se execută automat în fiecare lună, la ziua stabilită. Îl poți opri sau sări peste o lună oricând.": "It runs automatically every month, on the day you set. You can stop it or skip a month at any time.",
   "Se oprește aici; lunile dinainte rămân neatinse": "Stops here; earlier months are left untouched",
@@ -617,6 +621,7 @@ var DICT = { en: {
   "cheltuieli": "expenses",
   "cheltuieli înregistrate": "expenses recorded",
   "cheltuit până acum {0}": "spent so far {0}",
+  "consumat {0}%": "{0}% used",
   "de rate": "instalments",
   "depus în": "deposited in",
   "depășit cu": "over by",
@@ -646,6 +651,7 @@ var DICT = { en: {
   "mișcări": "movements",
   "mâine": "tomorrow",
   "nicio mișcare luna asta": "no movement this month",
+  "niciun buget setat": "no budget set",
   "nimic inactiv în": "nothing inactive in",
   "o singură dată": "one-off",
   "o singură dată, în": "one-off, in",
@@ -716,6 +722,7 @@ var DICT = { en: {
   "închis": "closed",
   "înregistrări. Le ștergi odată cu ea?": "records. Delete them along with it?",
   "îți mai trebuie {0}": "you still need {0}",
+  "Și în lunile următoare": "And in the months after",
   "Șterge": "Delete",
   "Șterge bugetul": "Delete the budget",
   "Șterge bugetul definitiv": "Delete the budget for good",
@@ -1117,6 +1124,18 @@ function budgetOf(m, catId){
   if(S.stdBudgets[catId] != null) return S.stdBudgets[catId];
   return null;
 }
+/* un standard nou nu are voie sa rescrie lunile deja trecute */
+function freezePastBudgets(catId, m){
+  var old = S.stdBudgets[catId], val = (old != null ? old : 0);
+  var cur = firstMonth(), guard = 0;
+  while(cur < m && guard++ < 400){
+    if(!S.budgets[cur]) S.budgets[cur] = {};
+    if(S.budgets[cur][catId] == null) S.budgets[cur][catId] = val;
+    cur = shiftM(cur, 1);
+  }
+}
+function setStdBudget(catId, v, m){ freezePastBudgets(catId, m); S.stdBudgets[catId] = v; }
+function clearStdBudget(catId, m){ freezePastBudgets(catId, m); delete S.stdBudgets[catId]; }
 function budgetedCats(m){
   return S.cats.filter(function(c){ return budgetOf(m,c.id) != null && budgetOf(m,c.id) > 0; });
 }
@@ -1236,7 +1255,6 @@ function render(){
   if(ui.view==="home") view.innerHTML = viewHome();
   else if(ui.view==="savings") view.innerHTML = viewSavings();
   else if(ui.view==="list") view.innerHTML = viewList();
-  else if(ui.view==="budget") view.innerHTML = viewBudget();
   else if(ui.view==="report") view.innerHTML = viewReport();
   else view.innerHTML = viewSettings();
   window.scrollTo({top:0});
@@ -1246,7 +1264,6 @@ var NAVITEMS = [
   {k:"home", t:"Sold", d:"M3 10.5 12 3l9 7.5M5.5 9.5V20h13V9.5"},
   {k:"savings", t:"Economii", d:"M12 3v10m0 0 4-4m-4 4-4-4M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"},
   {k:"list", t:"Mișcări", d:"M4 7h16M4 12h16M4 17h10"},
-  {k:"budget", t:"Bugete", d:"M12 3a9 9 0 1 0 9 9h-9Z M12 3v9h9"},
   {k:"report", t:"Raport", d:"M5 20V10M12 20V4M19 20v-7"},
   {k:"settings", t:"Setări", d:"M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 7.1 19.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 3 14a2 2 0 1 1 0-4 1.6 1.6 0 0 0 1.3-2.7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 10 3.6V3a2 2 0 1 1 4 0v.1A1.6 1.6 0 0 0 16.9 4.6l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z"}
 ];
@@ -1424,7 +1441,8 @@ function viewList(){
   var m = ui.month;
   var inc = incomesFor(m), fx = fixedFor(m), exps = expensesFor(m);
   var nIn = fx.length + inc.length, nEx = exps.length;
-  var tab = ui.sub;                       /* null = ecranul cu cele doua butoane */
+  var tab = ui.sub;                       /* null = ecranul cu butoanele */
+  if(tab === "bud") return viewBudget();
   var h = "";
 
   /* ecranul de pornire: doua butoane mari cu totalurile lunii */
@@ -1440,6 +1458,7 @@ function viewList(){
         '<span class="vl">'+esc(lei(totalExpense(m)))+'</span>'+
         '<span class="cn">'+nEx+' '+tr(nEx===1?"ieșire":"ieșiri")+'</span>'+
         '<span class="go" aria-hidden="true">›</span></button>'+
+      budPickBtn(m)+
       '</div>';
   }
 
@@ -1485,6 +1504,21 @@ function viewList(){
   return h;
 }
 
+function budPickBtn(m){
+  var totB = 0, totS = 0, inBud = {};
+  budgetedCats(m).forEach(function(c){ inBud[c.id] = true; totB += budgetOf(m, c.id); });
+  byCategory(m).forEach(function(a){ if(inBud[a.catId]) totS += a.spent; });
+  var used = totB > 0 ? Math.round(totS / totB * 100) : 0;
+  var nb = budgetedCats(m).length;
+  return '<button data-sub="bud">'+
+    '<span class="lb"><i style="background:var(--accent)"></i>'+tr("Bugete")+'</span>'+
+    '<span class="vl">'+esc(lei(totB))+'</span>'+
+    '<span class="cn">'+(nb
+      ? esc(nb + " " + tr(nb===1?"categorie":"categorii") + " · " + tr("consumat {0}%", used))
+      : tr("niciun buget setat"))+'</span>'+
+    '<span class="go" aria-hidden="true">›</span></button>';
+}
+
 /* ---- BUDGET ---- */
 function viewBudget(){
   var m = ui.month, h = "";
@@ -1505,7 +1539,7 @@ function viewBudget(){
     '<div class="meter"><i style="width:'+Math.min(100,used)+'%;background:var(--accent)"></i></div>'+
     (totP > 0 ? '<div class="hint" style="margin-top:2px">'+esc(tr("{0} provizionați pe categoriile bugetate — nu au consumat încă bugetul.", leiShort(totP)))+'</div>' : '')+
     (outS > 0 ? '<div class="hint" style="margin-top:2px">'+esc(tr("{0} cheltuiți în categorii fără buget — nu intră în procent.", leiShort(outS)))+'</div>' : '')+
-    '<div class="grid2" style="margin-top:6px"><button class="btn ghost" data-sheet="budget">'+tr("Setează bugete")+'</button><button class="btn ghost" data-copybud="1">'+tr("Copiază luna trecută")+'</button></div>'+
+    '<button class="btn ghost" style="margin-top:6px" data-sheet="budget">'+tr("Setează bugete")+'</button>'+
     '</div>';
 
   var bc = budgetedCats(m);
@@ -1954,10 +1988,12 @@ function sheetBudgetCat(catId){
   h += '<p class="hint" style="margin:-6px 2px 14px">'+esc(mLabel(m))+' · '+
        esc(tr("cheltuit până acum {0}", lei(agg.spent + agg.prov)))+'</p>';
   h += moneyField(tr("Limită lunară"), "bcAmt", val && val > 0 ? val : null).replace('class="inp money"', 'class="inp money" data-focus');
-  h += '<div class="f" style="display:flex;align-items:center;justify-content:space-between;gap:12px">'+
-       '<span style="flex:1"><span style="display:block;font-weight:600;font-size:14.5px">'+tr("Se aplică și în lunile următoare")+'</span>'+
-       '<span class="hint" style="display:block;margin:2px 0 0">'+tr("Fără asta, limita rămâne doar pe luna deschisă.")+'</span></span>'+
-       '<button type="button" class="tog" id="bcStd" aria-pressed="'+(std != null)+'"><i></i></button></div>';
+  var scope = (std != null && (mb == null || mb === std)) ? "future" : "month";
+  h += '<div class="seg" id="bcScope">'+
+       '<button type="button" data-bscope="month" aria-pressed="'+(scope==="month")+'">'+esc(tr("Doar în {0}", mLabel(m).split(" ")[0]))+'</button>'+
+       '<button type="button" data-bscope="future" aria-pressed="'+(scope==="future")+'">'+tr("Și în lunile următoare")+'</button>'+
+       '</div>';
+  h += '<p class="hint" id="bcHint" style="margin:-6px 2px 14px"></p>';
   h += '<button class="btn" data-save="budcat" data-id="'+catId+'">'+tr("Salvează")+'</button>';
   if(val != null && val > 0){
     if(std != null){
@@ -1968,16 +2004,36 @@ function sheetBudgetCat(catId){
     }
   }
   openSheet(h);
-  var tg = document.getElementById("bcStd");
-  tg.addEventListener("click", function(){ tg.setAttribute("aria-pressed", tg.getAttribute("aria-pressed")!=="true"); });
+  var hintEl = document.getElementById("bcHint");
+  function updScope(){
+    var sc = sheet.querySelector('[data-bscope][aria-pressed="true"]').getAttribute("data-bscope");
+    if(sc === "future"){
+      hintEl.textContent = tr("Se aplică din {0} încolo. Lunile dinainte rămân cum sunt.", mLabel(m));
+    } else if(std != null){
+      hintEl.textContent = tr("Doar luna asta se schimbă. Standardul de {0} rămâne pentru celelalte luni.", lei(std));
+    } else {
+      hintEl.textContent = tr("Limita rămâne doar pe luna deschisă.");
+    }
+  }
+  Array.prototype.forEach.call(sheet.querySelectorAll("[data-bscope]"), function(b2){
+    b2.addEventListener("click", function(){
+      Array.prototype.forEach.call(sheet.querySelectorAll("[data-bscope]"), function(x){ x.setAttribute("aria-pressed", x===b2); });
+      updScope();
+    });
+  });
+  updScope();
 }
 function saveBudgetCat(catId){
   var m = ui.month, v = parseNum(document.getElementById("bcAmt").value);
-  var std = document.getElementById("bcStd").getAttribute("aria-pressed") === "true";
+  var sc = sheet.querySelector('[data-bscope][aria-pressed="true"]').getAttribute("data-bscope");
   if(!S.budgets[m]) S.budgets[m] = {};
-  if(!(v > 0)){ delete S.budgets[m][catId]; delete S.stdBudgets[catId]; closeSheet(); commit(tr("Buget șters")); return; }
+  if(!(v > 0)){
+    if(sc === "future"){ clearStdBudget(catId, m); delete S.budgets[m][catId]; }
+    else { S.budgets[m][catId] = 0; }        /* fara limita doar luna asta */
+    closeSheet(); commit(sc === "future" ? tr("Buget șters") : tr("Fără buget luna asta")); return;
+  }
   S.budgets[m][catId] = v;
-  if(std) S.stdBudgets[catId] = v; else delete S.stdBudgets[catId];
+  if(sc === "future") setStdBudget(catId, v, m);   /* standardul nu se sterge cand alegi doar luna */
   closeSheet(); commit(tr("Buget salvat"));
 }
 function deleteBudget(scope, catId){
@@ -2517,10 +2573,11 @@ function saveBudgets(){
     var id = inp.getAttribute("data-bud");
     var raw = inp.value.trim();
     var std = sheet.querySelector('[data-std="'+id+'"]').getAttribute("aria-pressed")==="true";
-    if(raw===""){ delete S.budgets[m][id]; delete S.stdBudgets[id]; return; }   /* gol = fara limita, oriunde */
+    if(raw===""){ delete S.budgets[m][id]; if(S.stdBudgets[id] != null) clearStdBudget(id, m); return; }
     var v = parseNum(raw);
     S.budgets[m][id] = v;
-    if(std && v > 0) S.stdBudgets[id] = v; else delete S.stdBudgets[id];
+    if(std && v > 0) setStdBudget(id, v, m);
+    else if(S.stdBudgets[id] != null) clearStdBudget(id, m);
   });
   closeSheet(); commit(tr("Bugete salvate"));
 }
@@ -2556,7 +2613,7 @@ function deleteCat(id){
 
 /* ============ events ============ */
 document.addEventListener("click", function(ev){
-  var t = ev.target.closest ? ev.target.closest("[data-savemove],[data-savemoveedit],[data-saveplan],[data-editbud],[data-delbud],[data-sub],[data-reactivate],[data-doreactivate],[data-openitem],[data-delscopeopen],[data-delscope],[data-delhist],[data-install],[data-nav],[data-sheet],[data-editexp],[data-editprov],[data-editfix],[data-editinc],[data-editcat],[data-save],[data-del],[data-toggle],[data-copybud],[data-payprov],[data-closeprov],[data-reopenprov],[data-copytxt],[data-restore],[data-forget],[data-reset]") : null;
+  var t = ev.target.closest ? ev.target.closest("[data-savemove],[data-savemoveedit],[data-saveplan],[data-editbud],[data-delbud],[data-sub],[data-reactivate],[data-doreactivate],[data-openitem],[data-delscopeopen],[data-delscope],[data-delhist],[data-install],[data-nav],[data-sheet],[data-editexp],[data-editprov],[data-editfix],[data-editinc],[data-editcat],[data-save],[data-del],[data-toggle],[data-payprov],[data-closeprov],[data-reopenprov],[data-copytxt],[data-restore],[data-forget],[data-reset]") : null;
   if(!t) return;
   var a = function(k){ return t.getAttribute(k); };
 
@@ -2684,12 +2741,6 @@ document.addEventListener("click", function(ev){
     return;
   }
   if(a("data-toggle")==="carry"){ S.carry = !S.carry; commit(S.carry?tr("Report activat"):tr("Report dezactivat")); return; }
-  if(a("data-copybud")){
-    var prev = shiftM(ui.month,-1), src = S.budgets[prev];
-    if(!src || !Object.keys(src).length){ toast(tr("Luna trecută nu are bugete setate")); return; }
-    S.budgets[ui.month] = JSON.parse(JSON.stringify(src));
-    commit(tr("Bugete copiate din")+" "+mLabel(prev)); return;
-  }
   if(a("data-dlbackup")){
     try{
       var blob = new Blob([JSON.stringify(S,null,1)], {type:"application/json"});
@@ -2810,6 +2861,7 @@ window.__app = {
   get S(){ return S; }, set S(v){ S=v; },
   ui:ui, balance:balance, totalIncome:totalIncome, totalExpense:totalExpense,
   totalOpenProv:totalOpenProv, byCategory:byCategory, budgetOf:budgetOf,
+  setStdBudget:setStdBudget, clearStdBudget:clearStdBudget,
   provisionsFor:provisionsFor, provLastMonth:provLastMonth, provIdx:provIdx, provActive:provActive,
   provRemaining:provRemaining, provDelta:provDelta, provPaid:provPaid, provState:provState,
   reconcileProv:reconcileProv,
