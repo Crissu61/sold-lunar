@@ -2,7 +2,7 @@
 <html lang="ro">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="description" content="Buget personal: venituri, cheltuieli pe categorii, provizioane si bugete lunare.">
 <meta name="theme-color" content="#F4F6F9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0C0F13" media="(prefers-color-scheme: dark)">
@@ -58,7 +58,13 @@ body{
   margin:0; background:var(--bg); color:var(--text);
   font-family:var(--ff); font-size:15px; line-height:1.45;
   -webkit-font-smoothing:antialiased; -webkit-text-size-adjust:100%;
+  touch-action:manipulation;                 /* dublu-tap nu mai da zoom */
+  -webkit-tap-highlight-color:transparent;
 }
+html{touch-action:manipulation}
+/* textul din liste nu se selecteaza din greseala la atins lung; campurile raman normale */
+.app{-webkit-user-select:none;user-select:none}
+input,textarea,select,.num,.big,.vl{-webkit-user-select:text;user-select:text}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer;border:none;background:none}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
@@ -72,9 +78,9 @@ button{cursor:pointer;border:none;background:none}
 }
 .brandrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:2px 2px 10px}
 .brand{display:flex;align-items:center;gap:9px;font-weight:800;letter-spacing:-.02em}
-.backbtn{display:flex;align-items:center;gap:5px;width:100%;margin-top:8px;padding:10px 14px 10px 10px;border-radius:12px;
-  font-size:14.5px;font-weight:700;letter-spacing:-.01em;color:var(--accent-ink);background:var(--accent-soft);text-align:left}
-.backbtn svg{width:20px;height:20px;flex:0 0 auto}
+.backbtn{display:inline-flex;align-items:center;gap:4px;margin-top:8px;padding:9px 15px 9px 10px;border-radius:11px;
+  font-size:14.5px;font-weight:700;letter-spacing:-.01em;color:var(--accent-ink);background:var(--accent-soft)}
+.backbtn svg{width:19px;height:19px;flex:0 0 auto}
 .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
 .brand small{display:block;font-weight:500;font-size:11px;color:var(--faint);letter-spacing:.06em;text-transform:uppercase}
 .iconbtn{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;color:var(--muted);background:var(--surface);border:1px solid var(--line)}
@@ -357,7 +363,7 @@ function save(){
 }
 
 var S = load();
-var ui = { month: mk(new Date()), view: "home", mv: null };
+var ui = { month: mk(new Date()), view: "home", sub: null };
 var deferredInstall = null;
 
 /* ============ helpers ============ */
@@ -377,6 +383,7 @@ var DICT = { en: {
   "Acoperit exact": "Covered exactly",
   "Adaug-o pe ecranul principal ca să pornească fără bara browserului și să meargă și fără internet.": "Add it to your home screen so it opens without the browser bar and works offline.",
   "Adaugă categoria": "Add category",
+  "Adaugă categorie": "Add category",
   "Adaugă cheltuiala": "Add expense",
   "Adaugă cheltuială": "Add expense",
   "Adaugă o sumă mai mare ca zero": "Enter an amount greater than zero",
@@ -494,6 +501,7 @@ var DICT = { en: {
   "O cheltuială pe care o știi dinainte — rată, abonament, chirie. Se scade din sold acum, iar când o înregistrezi ca plătită, provizionul dispare.": "An expense you already know about — a loan payment, a subscription, rent. It comes off your balance now, and disappears once you record the actual payment.",
   "O singură dată": "One-off",
   "Oprit din": "Stopped from",
+  "Organizare": "Manage",
   "Pe categorii": "By category",
   "Plăți în": "Payments in",
   "Preferințe": "Preferences",
@@ -603,6 +611,8 @@ var DICT = { en: {
   "azi": "today",
   "buget personal": "personal budget",
   "buget standard": "standard budget",
+  "categorie": "category",
+  "categorii": "categories",
   "cheltuială": "expense",
   "cheltuieli": "expenses",
   "cheltuieli înregistrate": "expenses recorded",
@@ -611,6 +621,7 @@ var DICT = { en: {
   "depus în": "deposited in",
   "depășit cu": "over by",
   "depășit cu {0}": "over by {0}",
+  "deschide": "open",
   "din economii": "out of savings",
   "editează": "edit",
   "element inactiv în": "item inactive in",
@@ -689,7 +700,6 @@ var DICT = { en: {
   "În {0} cade {1}, zi lucrătoare — rămâne pe {2}.": "In {0} it falls on a {1}, a working day — it stays on the {2}.",
   "În {0}, {1} cade {2} — aplicația folosește <b>{3}, {4}</b>, ultima zi lucrătoare dinainte.": "In {0}, the {1} falls on a {2} — the app uses <b>{3} the {4}</b>, the last working day before it.",
   "Înapoi": "Back",
-  "Înapoi la Mișcări": "Back to Activity",
   "Începe din": "Starts in",
   "Închide provizionul": "Close the set-aside",
   "Închide-l acum (renunț la restul de": "Close it now (give up the remaining",
@@ -1220,9 +1230,8 @@ function render(){
   document.getElementById("mLabel").innerHTML = esc(mLabel(ui.month).split(" ")[0]) + "<span>" + esc(ui.month.split("-")[0]) + "</span>";
   renderNav();
   var bb = document.getElementById("backBtn");
-  var drill = ui.view === "list" && ui.mv;
-  bb.hidden = !drill;                       /* titlul aplicatiei ramane la locul lui */
-  if(drill) document.getElementById("backTxt").textContent = tr("Înapoi la Mișcări");
+  bb.hidden = !ui.sub;                      /* titlul aplicatiei ramane la locul lui */
+  document.getElementById("backTxt").textContent = tr("Înapoi");
   bb.setAttribute("aria-label", tr("Înapoi"));
   if(ui.view==="home") view.innerHTML = viewHome();
   else if(ui.view==="savings") view.innerHTML = viewSavings();
@@ -1415,18 +1424,18 @@ function viewList(){
   var m = ui.month;
   var inc = incomesFor(m), fx = fixedFor(m), exps = expensesFor(m);
   var nIn = fx.length + inc.length, nEx = exps.length;
-  var tab = ui.mv;                       /* null = ecranul cu cele doua butoane */
+  var tab = ui.sub;                       /* null = ecranul cu cele doua butoane */
   var h = "";
 
   /* ecranul de pornire: doua butoane mari cu totalurile lunii */
   if(!tab){
     return '<div class="mvpick">'+
-      '<button data-mv="inc">'+
+      '<button data-sub="inc">'+
         '<span class="lb"><i style="background:var(--ok)"></i>'+tr("Venituri")+'</span>'+
         '<span class="vl" style="color:var(--ok)">'+esc(lei(totalIncome(m)))+'</span>'+
         '<span class="cn">'+nIn+' '+tr(nIn===1?"intrare":"intrări")+'</span>'+
         '<span class="go" aria-hidden="true">›</span></button>'+
-      '<button data-mv="exp">'+
+      '<button data-sub="exp">'+
         '<span class="lb"><i style="background:var(--danger)"></i>'+tr("Cheltuieli")+'</span>'+
         '<span class="vl">'+esc(lei(totalExpense(m)))+'</span>'+
         '<span class="cn">'+nEx+' '+tr(nEx===1?"ieșire":"ieșiri")+'</span>'+
@@ -1569,27 +1578,43 @@ function viewReport(){
 }
 
 /* ---- SETTINGS ---- */
-function viewSettings(){
-  var h = '<div class="sect" style="margin-top:14px"><h2>'+tr("Categorii")+'</h2><button data-sheet="cat">'+tr("+ Adaugă")+'</button></div><div class="stack" style="margin-top:8px">';
-  h += S.cats.map(function(c){
+function catList(){
+  return S.cats.map(function(c){
     var std = S.stdBudgets[c.id];
     return '<button class="row" data-editcat="'+c.id+'">'+
       '<span class="chip" style="background:'+tint(c.color,.14)+';color:'+c.color+'">'+esc(initials(c.name))+'</span>'+
       '<span class="main"><span class="t">'+esc(c.name)+'</span><span class="s">'+(std?tr("buget standard")+" "+esc(leiShort(std)):tr("fără buget standard"))+'</span></span>'+
       '<span class="s" style="color:var(--faint)">'+tr("editează")+'</span></button>';
   }).join("");
-  h += '</div>';
+}
+function viewCats(){
+  return '<div class="sect" style="margin-top:14px"><h2>'+tr("Categorii")+'</h2>'+
+    '<button class="addbig" data-sheet="cat" aria-label="'+tr("Adaugă categorie")+'">'+
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>'+
+    '</div><div class="stack" style="margin-top:8px">'+ catList() +'</div>';
+}
+function viewSettings(){
+  if(ui.sub === "cats") return viewCats();
+  var nc = S.cats.length;
+  var h = '<div class="sect" style="margin-top:14px"><h2>'+tr("Organizare")+'</h2></div><div class="stack" style="margin-top:8px">'+
+    '<button class="row" data-sub="cats">'+
+      '<span class="chip" style="background:var(--surface2);color:var(--muted)">'+
+        '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16M2.5 6h.01M2.5 12h.01M2.5 18h.01"/></svg>'+
+      '</span>'+
+      '<span class="main"><span class="t">'+tr("Categorii")+'</span><span class="s">'+
+        nc+' '+tr(nc===1?"categorie":"categorii")+'</span></span>'+
+      '<span class="s" style="color:var(--faint)">'+tr("deschide")+'</span>'+
+    '</button>';
 
   var arch = archivedItems(ui.month);
-  h += '<div class="sect"><h2>'+tr("Arhivă")+'</h2></div><div class="stack" style="margin-top:8px">'+
-    '<button class="row" data-sheet="archive">'+
+  h += '<button class="row" data-sheet="archive">'+
       '<span class="chip" style="background:var(--surface2);color:var(--muted)">'+
         '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v3H3zM5 10v10h14V10M10 14h4"/></svg>'+
       '</span>'+
       '<span class="main"><span class="t">'+tr("Arhivă")+'</span><span class="s">'+
         (arch.length ? arch.length + (arch.length === 1 ? " "+tr("element inactiv în")+" " : " "+tr("elemente inactive în")+" ") + mLabel(ui.month)
                      : tr("nimic inactiv în")+" " + mLabel(ui.month))+'</span></span>'+
-      '<span class="s" style="color:var(--faint)">deschide</span>'+
+      '<span class="s" style="color:var(--faint)">'+tr("deschide")+'</span>'+
     '</button></div>';
 
   h += '<div class="sect"><h2>'+tr("Preferințe")+'</h2></div><div class="card stack" style="margin-top:8px;gap:0">'+
@@ -2531,11 +2556,11 @@ function deleteCat(id){
 
 /* ============ events ============ */
 document.addEventListener("click", function(ev){
-  var t = ev.target.closest ? ev.target.closest("[data-savemove],[data-savemoveedit],[data-saveplan],[data-editbud],[data-delbud],[data-mv],[data-reactivate],[data-doreactivate],[data-openitem],[data-delscopeopen],[data-delscope],[data-delhist],[data-install],[data-nav],[data-sheet],[data-editexp],[data-editprov],[data-editfix],[data-editinc],[data-editcat],[data-save],[data-del],[data-toggle],[data-copybud],[data-payprov],[data-closeprov],[data-reopenprov],[data-copytxt],[data-restore],[data-forget],[data-reset]") : null;
+  var t = ev.target.closest ? ev.target.closest("[data-savemove],[data-savemoveedit],[data-saveplan],[data-editbud],[data-delbud],[data-sub],[data-reactivate],[data-doreactivate],[data-openitem],[data-delscopeopen],[data-delscope],[data-delhist],[data-install],[data-nav],[data-sheet],[data-editexp],[data-editprov],[data-editfix],[data-editinc],[data-editcat],[data-save],[data-del],[data-toggle],[data-copybud],[data-payprov],[data-closeprov],[data-reopenprov],[data-copytxt],[data-restore],[data-forget],[data-reset]") : null;
   if(!t) return;
   var a = function(k){ return t.getAttribute(k); };
 
-  if(a("data-nav")){ ui.view = a("data-nav"); ui.mv = null; render(); return; }   /* tabul te duce mereu la ecranul lui de pornire */
+  if(a("data-nav")){ ui.view = a("data-nav"); ui.sub = null; render(); return; }   /* tabul te duce mereu la ecranul lui de pornire */
   if(a("data-sheet")){
     var s = a("data-sheet");
     if(s==="exp") sheetExpense(null);
@@ -2555,8 +2580,8 @@ document.addEventListener("click", function(ev){
   if(a("data-editfix")){ sheetIncome("fix", a("data-editfix")); return; }
   if(a("data-editinc")){ sheetIncome("var", a("data-editinc")); return; }
   if(a("data-editcat")){ sheetCat(a("data-editcat")); return; }
-  if(a("data-mv")){ ui.mv = a("data-mv"); render(); return; }
-  if(a("data-back")){ ui.mv = null; render(); return; }
+  if(a("data-sub")){ ui.sub = a("data-sub"); render(); return; }
+  if(a("data-back")){ ui.sub = null; render(); return; }
   if(a("data-editbud")){ sheetBudgetCat(a("data-editbud")); return; }
   if(a("data-delbud")){ var db = a("data-delbud").split("|"); deleteBudget(db[0], db[1]); return; }
 
@@ -2716,13 +2741,30 @@ window.addEventListener("beforeinstallprompt", function(e){
 });
 window.addEventListener("appinstalled", function(){ deferredInstall = null; if(ui.view === "settings") render(); });
 
-document.getElementById("backBtn").addEventListener("click", function(){ ui.mv = null; render(); });
+document.getElementById("backBtn").addEventListener("click", function(){ ui.sub = null; render(); });
 document.getElementById("prevM").addEventListener("click", function(){ ui.month = shiftM(ui.month,-1); render(); });
 document.getElementById("nextM").addEventListener("click", function(){ ui.month = shiftM(ui.month,1); render(); });
+/* iOS: al doilea tap rapid in acelasi loc ar mari pagina — il oprim.
+   Pinch-zoom ramane disponibil, ca sa nu blocam marirea pentru cine are nevoie. */
+(function(){
+  var last = 0, lx = 0, ly = 0;
+  document.addEventListener("touchend", function(e){
+    if(e.touches.length || !e.changedTouches.length) return;
+    var t = e.changedTouches[0], now = Date.now();
+    if(now - last < 350 && Math.abs(t.clientX - lx) < 40 && Math.abs(t.clientY - ly) < 40){
+      var el = e.target;
+      var edit = el.closest && el.closest("input,textarea,select,[contenteditable]");
+      if(!edit && e.cancelable) e.preventDefault();   /* opreste doar zoom-ul, nu si tapul */
+      last = 0; return;
+    }
+    last = now; lx = t.clientX; ly = t.clientY;
+  }, { passive:false });
+})();
+
 document.addEventListener("keydown", function(e){
   if(e.key !== "Escape") return;
   if(sheet.classList.contains("on")){ closeSheet(); return; }
-  if(ui.view === "list" && ui.mv){ ui.mv = null; render(); }
+  if(ui.sub){ ui.sub = null; render(); }
 });
 
 /* theme */
