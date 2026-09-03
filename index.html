@@ -387,6 +387,7 @@ var DICT = { en: {
   "Adaugă cheltuiala": "Add expense",
   "Adaugă cheltuială": "Add expense",
   "Adaugă o sumă mai mare ca zero": "Enter an amount greater than zero",
+  "Adaugă provizion": "Add a set-aside",
   "Adaugă provizionul": "Add set-aside",
   "Adaugă transferul": "Add transfer",
   "Adaugă venit": "Add income",
@@ -468,6 +469,7 @@ var DICT = { en: {
   "Editează transferul": "Edit transfer",
   "Editează venitul": "Edit income",
   "Fiecare lună începe cu ce a rămas din luna dinainte. Dacă îl oprești, fiecare lună pornește de la zero.": "Each month starts with whatever was left from the one before. Turn it off and every month starts from zero.",
+  "Finanțe": "Finance",
   "Fișier încărcat — apasă Restaurează": "File loaded — tap Restore",
   "Fără asta, limita rămâne doar pe luna deschisă.": "Without this, the limit stays on the open month only.",
   "Fără buget": "No budget",
@@ -513,6 +515,7 @@ var DICT = { en: {
   "Programat în": "Scheduled in",
   "Provizioane": "Set-asides",
   "Provizioane neachitate": "Unpaid set-asides",
+  "Provizioane ·": "Set aside ·",
   "Provizion": "Set-aside",
   "Provizion nou": "New set-aside",
   "Provizion redeschis": "Set-aside reopened",
@@ -652,6 +655,7 @@ var DICT = { en: {
   "mâine": "tomorrow",
   "nicio mișcare luna asta": "no movement this month",
   "niciun buget setat": "no budget set",
+  "niciun provizion": "nothing set aside",
   "nimic inactiv în": "nothing inactive in",
   "o singură dată": "one-off",
   "o singură dată, în": "one-off, in",
@@ -662,6 +666,8 @@ var DICT = { en: {
   "plăți programate până atunci ·": "scheduled payments before then ·",
   "plăți rămase, în total": "payments left, totalling",
   "programat": "scheduled",
+  "provizioane": "items",
+  "provizion": "item",
   "provizion lunar": "monthly set-aside",
   "provizion o singură dată": "one-off set-aside",
   "provizionat, încă neplătit": "set aside, not yet paid",
@@ -676,6 +682,7 @@ var DICT = { en: {
   "se adaugă automat pe 1": "is added automatically on 1",
   "spre economii": "into savings",
   "sărit peste": "skipped for",
+  "toate achitate": "all paid",
   "transfer din economii": "transfer out of savings",
   "transfer spre economii": "transfer into savings",
   "transferuri recurente": "recurring transfers",
@@ -686,6 +693,7 @@ var DICT = { en: {
   "venit variabil ·": "one-off income ·",
   "{0} cade {1}": "the {0} falls on a {1}",
   "{0} cheltuiți în categorii fără buget — nu intră în procent.": "{0} spent in categories with no budget — not counted in the percentage.",
+  "{0} de acoperit": "{0} to cover",
   "{0} nefolosiți": "{0} unused",
   "{0} provizionați aici — intră în buget când îi plătești": "{0} set aside here — counts against the budget once paid",
   "{0} provizionați pe categoriile bugetate — nu au consumat încă bugetul.": "{0} set aside in budgeted categories — not counted against the budget yet.",
@@ -1263,7 +1271,7 @@ function render(){
 var NAVITEMS = [
   {k:"home", t:"Sold", d:"M3 10.5 12 3l9 7.5M5.5 9.5V20h13V9.5"},
   {k:"savings", t:"Economii", d:"M12 3v10m0 0 4-4m-4 4-4-4M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"},
-  {k:"list", t:"Mișcări", d:"M4 7h16M4 12h16M4 17h10"},
+  {k:"list", t:"Finanțe", d:"M4 7h16M4 12h16M4 17h10"},
   {k:"report", t:"Raport", d:"M5 20V10M12 20V4M19 20v-7"},
   {k:"settings", t:"Setări", d:"M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 7.1 19.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 3 14a2 2 0 1 1 0-4 1.6 1.6 0 0 0 1.3-2.7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 10 3.6V3a2 2 0 1 1 4 0v.1A1.6 1.6 0 0 0 16.9 4.6l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z"}
 ];
@@ -1308,56 +1316,6 @@ function viewHome(){
           : (sav > 0 ? tr("Depus în economii") : tr("Retras din economii")), -sav, "sav") : "")+
     '</div>'+ salaryStrip(m) +'</div>';
 
-
-  var open = openProvisions(m);
-  h += '<div class="sect"><h2>'+tr("Provizioane")+'</h2><button data-sheet="prov">'+tr("+ Adaugă")+'</button></div><div class="stack" style="margin-top:8px">';
-  if(!provisionsFor(m).length){
-    h += '<div class="empty">'+tr("Nimic provizionat. Adaugă ratele, abonamentele sau alte cheltuieli pe care le știi dinainte — se scad din sold până le înregistrezi.")+'</div>';
-  } else {
-    h += provisionsFor(m).sort(function(a,b){ return (a.state==="closed"?1:0)-(b.state==="closed"?1:0) || (a.p.day||99)-(b.p.day||99); }).map(function(x){
-      var c = x.p.catId ? cat(x.p.catId) : null;
-      var col = c ? c.color : "#B5721A";
-      var term = x.p.recurring && x.p.term;
-      var kind = term ? (tr("rata")+" "+x.idx+"/"+x.p.term) : (x.p.recurring ? tr("lunar, nelimitat") : tr("o singură dată"));
-      var delta = provDelta(x.p, m);
-      var covered = x.remaining <= 0;                 /* acoperit integral, dar neinchis */
-      var diffTxt = "", diffCol = "";
-      if(x.paid > 0 && delta > 0){ diffTxt = tr("depășit cu {0}", leiShort(delta)); diffCol = "var(--danger)"; }
-      else if(x.paid > 0 && delta < 0 && x.state === "closed"){ diffTxt = tr("{0} nefolosiți", leiShort(-delta)); diffCol = "var(--muted)"; }
-
-      var sub;
-      if(x.paid > 0){
-        sub = tr("achitat {0} din {1}", NF0.format(Math.round(x.paid)), leiShort(x.p.amount));
-        if(diffTxt) sub += " · ";
-        else if(x.p.day) sub += " "+tr("· pe")+" " + x.p.day;
-      } else {
-        sub = kind + (x.p.day ? (" "+tr("· scadent pe")+" " + x.p.day) : "") + (c ? " · " + c.name : "");
-      }
-      var right = x.state === "closed"
-        ? '<span class="pill ok">'+tr("închis")+'</span>'
-        : (covered && x.paid > 0
-            ? '<span class="pill mut">'+tr("acoperit")+'</span>'
-            : '<span class="amt num">−'+esc(lei(x.remaining))+'</span>');
-      return '<button class="row" data-editprov="'+x.p.id+'">'+
-        '<span class="chip" style="background:'+tint(col,.14)+';color:'+col+'">'+esc(c?initials(c.name):"P")+'</span>'+
-        '<span class="main"><span class="t">'+esc(x.p.name)+(x.state==="partial"?' <span class="pill warn" style="margin-left:4px">'+tr("parțial")+'</span>':'')+'</span>'+
-        '<span class="s'+(diffTxt?" s2":"")+'">'+esc(sub)+(diffTxt ? '<b style="color:'+diffCol+';font-weight:600">'+esc(diffTxt)+'</b>' : '')+'</span>'+
-        (term ? '<span class="mini"><i style="width:'+Math.min(100, x.idx/x.p.term*100)+'%;background:'+col+'"></i></span>'
-              : (x.state==="partial" ? '<span class="mini"><i style="width:'+Math.min(100, x.paid/x.p.amount*100)+'%;background:'+col+'"></i></span>' : ''))+
-        '</span>'+
-        (term ? '<span class="cnt">'+x.idx+'/'+x.p.term+'</span>' : '')+
-        right +
-        '</button>';
-    }).join("");
-    if(open.length) h += '<button class="btn ghost" data-sheet="exp-from-prov" style="margin-top:4px">'+tr("Înregistrează plata unui provizion")+'</button>';
-    var terms = provisionsFor(m).filter(function(x){ return x.p.recurring && x.p.term; });
-    if(terms.length){
-      var restN = 0, restV = 0;
-      terms.forEach(function(x){ var left = x.p.term - x.idx + 1; restN += left; restV += x.remaining + (left-1) * x.p.amount; });
-      h += '<p class="hint" style="margin:2px 4px 0">'+terms.length+(terms.length===1?' '+tr("rată în derulare"):' '+tr("rate în derulare"))+' · '+restN+' '+tr("plăți rămase, în total")+' '+esc(lei(restV))+'</p>';
-    }
-  }
-  h += '</div>';
 
   return h;
 }
@@ -1443,6 +1401,7 @@ function viewList(){
   var nIn = fx.length + inc.length, nEx = exps.length;
   var tab = ui.sub;                       /* null = ecranul cu butoanele */
   if(tab === "bud") return viewBudget();
+  if(tab === "prov") return viewProvisions();
   var h = "";
 
   /* ecranul de pornire: doua butoane mari cu totalurile lunii */
@@ -1458,6 +1417,7 @@ function viewList(){
         '<span class="vl">'+esc(lei(totalExpense(m)))+'</span>'+
         '<span class="cn">'+nEx+' '+tr(nEx===1?"ieșire":"ieșiri")+'</span>'+
         '<span class="go" aria-hidden="true">›</span></button>'+
+      provPickBtn(m)+
       budPickBtn(m)+
       '</div>';
   }
@@ -1504,6 +1464,75 @@ function viewList(){
   return h;
 }
 
+function viewProvisions(){
+  var m = ui.month, h = "";
+
+  var open = openProvisions(m);
+  h += '<div class="sect" style="margin-top:14px"><h2>'+tr("Provizioane ·")+' '+esc(mLabel(m))+'</h2>'+
+    '<button class="addbig" data-sheet="prov" aria-label="'+tr("Adaugă provizion")+'">'+
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button></div><div class="stack" style="margin-top:8px">';
+  if(!provisionsFor(m).length){
+    h += '<div class="empty">'+tr("Nimic provizionat. Adaugă ratele, abonamentele sau alte cheltuieli pe care le știi dinainte — se scad din sold până le înregistrezi.")+'</div>';
+  } else {
+    h += provisionsFor(m).sort(function(a,b){ return (a.state==="closed"?1:0)-(b.state==="closed"?1:0) || (a.p.day||99)-(b.p.day||99); }).map(function(x){
+      var c = x.p.catId ? cat(x.p.catId) : null;
+      var col = c ? c.color : "#B5721A";
+      var term = x.p.recurring && x.p.term;
+      var kind = term ? (tr("rata")+" "+x.idx+"/"+x.p.term) : (x.p.recurring ? tr("lunar, nelimitat") : tr("o singură dată"));
+      var delta = provDelta(x.p, m);
+      var covered = x.remaining <= 0;                 /* acoperit integral, dar neinchis */
+      var diffTxt = "", diffCol = "";
+      if(x.paid > 0 && delta > 0){ diffTxt = tr("depășit cu {0}", leiShort(delta)); diffCol = "var(--danger)"; }
+      else if(x.paid > 0 && delta < 0 && x.state === "closed"){ diffTxt = tr("{0} nefolosiți", leiShort(-delta)); diffCol = "var(--muted)"; }
+
+      var sub;
+      if(x.paid > 0){
+        sub = tr("achitat {0} din {1}", NF0.format(Math.round(x.paid)), leiShort(x.p.amount));
+        if(diffTxt) sub += " · ";
+        else if(x.p.day) sub += " "+tr("· pe")+" " + x.p.day;
+      } else {
+        sub = kind + (x.p.day ? (" "+tr("· scadent pe")+" " + x.p.day) : "") + (c ? " · " + c.name : "");
+      }
+      var right = x.state === "closed"
+        ? '<span class="pill ok">'+tr("închis")+'</span>'
+        : (covered && x.paid > 0
+            ? '<span class="pill mut">'+tr("acoperit")+'</span>'
+            : '<span class="amt num">−'+esc(lei(x.remaining))+'</span>');
+      return '<button class="row" data-editprov="'+x.p.id+'">'+
+        '<span class="chip" style="background:'+tint(col,.14)+';color:'+col+'">'+esc(c?initials(c.name):"P")+'</span>'+
+        '<span class="main"><span class="t">'+esc(x.p.name)+(x.state==="partial"?' <span class="pill warn" style="margin-left:4px">'+tr("parțial")+'</span>':'')+'</span>'+
+        '<span class="s'+(diffTxt?" s2":"")+'">'+esc(sub)+(diffTxt ? '<b style="color:'+diffCol+';font-weight:600">'+esc(diffTxt)+'</b>' : '')+'</span>'+
+        (term ? '<span class="mini"><i style="width:'+Math.min(100, x.idx/x.p.term*100)+'%;background:'+col+'"></i></span>'
+              : (x.state==="partial" ? '<span class="mini"><i style="width:'+Math.min(100, x.paid/x.p.amount*100)+'%;background:'+col+'"></i></span>' : ''))+
+        '</span>'+
+        (term ? '<span class="cnt">'+x.idx+'/'+x.p.term+'</span>' : '')+
+        right +
+        '</button>';
+    }).join("");
+    if(open.length) h += '<button class="btn ghost" data-sheet="exp-from-prov" style="margin-top:4px">'+tr("Înregistrează plata unui provizion")+'</button>';
+    var terms = provisionsFor(m).filter(function(x){ return x.p.recurring && x.p.term; });
+    if(terms.length){
+      var restN = 0, restV = 0;
+      terms.forEach(function(x){ var left = x.p.term - x.idx + 1; restN += left; restV += x.remaining + (left-1) * x.p.amount; });
+      h += '<p class="hint" style="margin:2px 4px 0">'+terms.length+(terms.length===1?' '+tr("rată în derulare"):' '+tr("rate în derulare"))+' · '+restN+' '+tr("plăți rămase, în total")+' '+esc(lei(restV))+'</p>';
+    }
+  }
+  h += '</div>';
+
+  return h;
+}
+function provPickBtn(m){
+  var lista = provisionsFor(m), rest = totalOpenProv(m);
+  var neinchise = lista.filter(function(x){ return x.state !== "closed"; }).length;
+  return '<button data-sub="prov">'+
+    '<span class="lb"><i style="background:var(--warn)"></i>'+tr("Provizioane")+'</span>'+
+    '<span class="vl">'+esc(lei(rest))+'</span>'+
+    '<span class="cn">'+(lista.length
+      ? esc(neinchise ? tr("{0} de acoperit", neinchise + " " + tr(neinchise===1?"provizion":"provizioane"))
+                      : tr("toate achitate"))
+      : tr("niciun provizion"))+'</span>'+
+    '<span class="go" aria-hidden="true">›</span></button>';
+}
 function budPickBtn(m){
   var totB = 0, totS = 0, inBud = {};
   budgetedCats(m).forEach(function(c){ inBud[c.id] = true; totB += budgetOf(m, c.id); });
