@@ -376,6 +376,7 @@ var DICT = { en: {
   "Adaugă transferul": "Add transfer",
   "Adaugă venit": "Add income",
   "Adaugă venitul": "Add income",
+  "Ai doar {0} în economii — nu poți retrage mai mult.": "You only have {0} in savings — you cannot take out more.",
   "Alege fișierul de backup": "Choose backup file",
   "Am uitat categoriile învățate": "Learned categories forgotten",
   "Arhivă": "Archive",
@@ -480,6 +481,7 @@ var DICT = { en: {
   "Nimic provizionat. Adaugă ratele, abonamentele sau alte cheltuieli pe care le știi dinainte — se scad din sold până le înregistrezi.": "Nothing set aside yet. Add loan payments, subscriptions or any expense you already know about — they come off your balance until you record them.",
   "Nimic în arhivă pentru": "Nothing archived for",
   "Nr. de rate": "Fixed instalments",
+  "Nu poți retrage mai mult decât ai — {0} în economii": "You cannot take out more than you have — {0} in savings",
   "Nume": "Name",
   "O cheltuială pe care o știi dinainte — rată, abonament, chirie. Se scade din sold acum, iar când o înregistrezi ca plătită, provizionul dispare.": "An expense you already know about — a loan payment, a subscription, rent. It comes off your balance now, and disappears once you record the actual payment.",
   "O singură dată": "One-off",
@@ -660,6 +662,8 @@ var DICT = { en: {
   "{0} cade {1}": "the {0} falls on a {1}",
   "{0} cheltuiți în categorii fără buget — nu intră în procent.": "{0} spent in categories with no budget — not counted in the percentage.",
   "{0} nefolosiți": "{0} unused",
+  "{0} provizionați aici — intră în buget când îi plătești": "{0} set aside here — counts against the budget once paid",
+  "{0} provizionați pe categoriile bugetate — nu au consumat încă bugetul.": "{0} set aside in budgeted categories — not counted against the budget yet.",
   "{0} în {1}": "{0} in {1}",
   "· buget": "· budget",
   "· deocamdată fără report": "· carry-over not counted yet",
@@ -934,7 +938,7 @@ function provisionsDueBy(endDate){
     provisionsFor(m).forEach(function(x){
       if(!x.p.day || x.remaining <= 0) return;
       var d = dateForDay(m, x.p.day);
-      if(d >= today && d <= endDate) res.push({ x:x, date:d });
+      if(d >= today && d < endDate) res.push({ x:x, date:d });   /* in ziua salariului banii sunt deja acolo */
     });
   });
   return res;
@@ -1001,6 +1005,15 @@ function plannedSavingsNet(m){
 }
 /* ce iese din soldul lunii: mutat efectiv + mutat programat */
 function savingsCommitted(m){ return Math.round((savingsNet(m) + plannedSavingsNet(m))*100)/100; }
+/* cati bani sunt in economii la data d (fara miscarea pe care tocmai o editezi) */
+function savingsAvailAt(d, exceptId){
+  var t = 0;
+  S.savings.moves.forEach(function(x){
+    if(exceptId && x.id === exceptId) return;
+    if(x.date <= d) t += (x.dir === "out" ? -x.amount : x.amount);
+  });
+  return Math.round(t*100)/100;
+}
 function savingsPlanFor(id){ return (S.savings.plans||[]).filter(function(x){ return x.id===id; })[0]; }
 
 function firstMonth(){
@@ -1367,20 +1380,18 @@ function expRow(e){
 function budRow(m,c){
   var b = budgetOf(m,c.id) || 0;
   var agg = byCategory(m).filter(function(x){ return x.catId===c.id; })[0] || {spent:0,prov:0};
-  var pctSpent = b>0 ? (agg.spent/b*100) : 0;
-  var pctProv  = b>0 ? (agg.prov/b*100) : 0;
-  var used = pctSpent + pctProv;
-  var rest = b - agg.spent - agg.prov;
+  /* bugetul se consuma doar cu cheltuiala efectiva; provizionul e informativ */
+  var used = b>0 ? (agg.spent/b*100) : 0;
+  var rest = b - agg.spent;
   var cls = used>=100 ? "danger" : used>=80 ? "warn" : "ok";
   return '<button class="bud" data-editbud="'+c.id+'"><div class="top">'+
     '<span class="chip" style="width:26px;height:26px;border-radius:9px;font-size:11px;background:'+tint(c.color,.14)+';color:'+c.color+'">'+esc(initials(c.name))+'</span>'+
     '<span class="nm">'+esc(c.name)+'</span>'+
     '<span class="pct" style="color:var(--'+cls+')">'+Math.round(used)+'%</span></div>'+
-    '<div class="meter"><i style="width:'+Math.min(100,pctSpent)+'%;background:'+c.color+'"></i>'+
-    '<i style="width:'+Math.min(Math.max(0,100-pctSpent),pctProv)+'%;background:'+tint(c.color,.38)+'"></i></div>'+
-    '<div class="legend"><span class="num">'+esc(leiShort(agg.spent+agg.prov))+' / '+esc(leiShort(b))+'</span>'+
+    '<div class="meter"><i style="width:'+Math.min(100,used)+'%;background:'+c.color+'"></i></div>'+
+    '<div class="legend"><span class="num">'+esc(leiShort(agg.spent))+' / '+esc(leiShort(b))+'</span>'+
     '<span style="color:var(--'+cls+')">'+(rest>=0 ? tr("mai ai")+" "+leiShort(rest)+" ("+Math.max(0,Math.round(100-used))+"%)" : tr("depășit cu")+" "+leiShort(-rest))+'</span></div>'+
-    (agg.prov>0 ? '<div class="hint" style="margin-top:6px">include '+esc(leiShort(agg.prov))+' provizionat</div>' : '')+
+    (agg.prov>0 ? '<div class="hint" style="margin-top:6px">'+esc(tr("{0} provizionați aici — intră în buget când îi plătești", leiShort(agg.prov)))+'</div>' : '')+
     '</button>';
 }
 
@@ -1457,13 +1468,14 @@ function viewBudget(){
     if(inBud[a.catId]){ totS += a.spent; totP += a.prov; }
     else outS += a.spent + a.prov;
   });
-  var used = totB>0 ? (totS+totP)/totB*100 : 0;
+  var used = totB>0 ? totS/totB*100 : 0;
 
   h += '<div class="card stack" style="margin-top:12px">'+
     '<div><div class="lbl" style="font-size:12px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--faint)">'+tr("Buget total")+' '+esc(mLabel(m))+'</div>'+
     '<div class="big num" style="font-size:30px;font-weight:600;letter-spacing:-.03em;margin:6px 0 2px">'+esc(lei(totB))+'</div>'+
-    '<div class="sub" style="font-size:13px;color:var(--muted)">consumat '+Math.round(used)+tr("% · rămas")+' '+esc(lei(Math.max(0,totB-totS-totP)))+'</div></div>'+
-    '<div class="meter"><i style="width:'+Math.min(100,totB?totS/totB*100:0)+'%;background:var(--accent)"></i><i style="width:'+Math.min(Math.max(0,100-(totB?totS/totB*100:0)), totB?totP/totB*100:0)+'%;background:'+tint("#0E8C82",.4)+'"></i></div>'+
+    '<div class="sub" style="font-size:13px;color:var(--muted)">consumat '+Math.round(used)+tr("% · rămas")+' '+esc(lei(Math.max(0,totB-totS)))+'</div></div>'+
+    '<div class="meter"><i style="width:'+Math.min(100,used)+'%;background:var(--accent)"></i></div>'+
+    (totP > 0 ? '<div class="hint" style="margin-top:2px">'+esc(tr("{0} provizionați pe categoriile bugetate — nu au consumat încă bugetul.", leiShort(totP)))+'</div>' : '')+
     (outS > 0 ? '<div class="hint" style="margin-top:2px">'+esc(tr("{0} cheltuiți în categorii fără buget — nu intră în procent.", leiShort(outS)))+'</div>' : '')+
     '<div class="grid2" style="margin-top:6px"><button class="btn ghost" data-sheet="budget">'+tr("Setează bugete")+'</button><button class="btn ghost" data-copybud="1">'+tr("Copiază luna trecută")+'</button></div>'+
     '</div>';
@@ -2054,13 +2066,22 @@ function sheetSavingsMove(dir, id){
   if(mv) h += '<button class="btn dang" style="margin-top:8px" data-del="svmove" data-id="'+mv.id+'">'+tr("Șterge")+'</button>';
   openSheet(h);
   var amtEl = document.getElementById("svAmt"), hintEl = document.getElementById("svHint");
+  var dateEl = document.getElementById("svDate"), okBtn = sheet.querySelector('[data-save="svmove"]');
   function upd(){
-    var v = parseNum(amtEl.value), bal = savingsBalance(ui.month);
-    if(dir === "out" && v > bal) hintEl.innerHTML = '<span style="color:var(--warn)">'+tr("Retragi mai mult decât ai în economii (")+esc(lei(bal))+'). Soldul economiilor va intra pe minus.</span>';
-    else if(v > 0) hintEl.textContent = dir === "in" ? tr("Economiile ajung la")+" " + lei(bal + v) + "." : tr("Economiile rămân la")+" " + lei(bal - v) + ".";
-    else hintEl.textContent = "";
+    var v = parseNum(amtEl.value);
+    var av = savingsAvailAt(dateEl.value || todayISO(), mv ? mv.id : null);
+    var prea = dir === "out" && v > av;
+    if(prea){
+      hintEl.innerHTML = '<span style="color:var(--danger)">'+esc(tr("Ai doar {0} în economii — nu poți retrage mai mult.", lei(av)))+'</span>';
+    } else if(v > 0){
+      hintEl.textContent = dir === "in" ? tr("Economiile ajung la")+" " + lei(av + v) + "." : tr("Economiile rămân la")+" " + lei(av - v) + ".";
+    } else hintEl.textContent = "";
+    okBtn.disabled = prea;
+    okBtn.style.opacity = prea ? ".5" : "";
   }
-  amtEl.addEventListener("input", upd); upd();
+  amtEl.addEventListener("input", upd);
+  dateEl.addEventListener("change", upd);
+  upd();
 }
 function sheetSavingsPlan(id){
   var pl = id && id !== "new" ? savingsPlanFor(id) : null;
@@ -2088,6 +2109,10 @@ function saveSavingsMove(id){
   var note = noteEl ? noteEl.value.trim() : "";
   var date = document.getElementById("svDate").value || dateInMonth(ui.month);
   var dir = document.getElementById("svDir").value;
+  if(dir === "out"){
+    var av = savingsAvailAt(date, id || null);
+    if(amt > av){ toast(tr("Nu poți retrage mai mult decât ai — {0} în economii", lei(av))); return; }
+  }
   if(id){
     var mv = S.savings.moves.filter(function(x){ return x.id===id; })[0];
     if(mv){ mv.amount = amt; mv.note = note; mv.date = date; }
@@ -2723,7 +2748,7 @@ window.__app = {
   reconcileProv:reconcileProv,
   parseNum:parseNum, tr:tr, applyLang:applyLang,
   prevWorkday:prevWorkday, salaryDate:salaryDate, isWeekendDay:isWeekendDay,
-  savingsBalance:savingsBalance, savingsNet:savingsNet, plannedSavings:plannedSavings,
+  savingsBalance:savingsBalance, savingsAvailAt:savingsAvailAt, savingsNet:savingsNet, saveSavingsMove:saveSavingsMove, plannedSavings:plannedSavings,
   plannedSavingsNet:plannedSavingsNet, savingsCommitted:savingsCommitted, savingsMovesFor:savingsMovesFor, materializeSavings:materializeSavings,
   realBalance:realBalance, receivedIncome:receivedIncome, spentSoFar:spentSoFar,
   carryPending:carryPending, curMonth:curMonth, carryInto:carryInto, fixedLive:fixedLive, archivedItems:archivedItems, reactivateFrom:reactivateFrom, isOff:isOff, addOff:addOff, applyDeleteScope:applyDeleteScope, fixedAmount:fixedAmount, fixedStart:fixedStart, fixedChanges:fixedChanges, fixedFor:fixedFor,
